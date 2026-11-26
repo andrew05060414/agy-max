@@ -141,6 +141,20 @@ test('local wallpaper only accepts chosen media and releases previous object URL
   assert.equal(images.at(-1), null);
   assert.deepEqual(revoked, ['blob:fixture/first.png', 'blob:fixture/second.mp4']);
   integration.dispose();
+
+  // First use: the file is chosen before anything else has created the optics instance.
+  const firstUse = [];
+  const fresh = vm.createContext({
+    File,
+    location: { pathname: '/powertools' },
+    URL: { createObjectURL: file => `blob:fixture/${file.name}`, revokeObjectURL() {} },
+    __agyCreateOptics: () => ({ sync() {}, dispose() {}, setWallpaperStatus: value => firstUse.push(value) })
+  });
+  vm.runInContext(readFileSync(new URL('../lib/prism-integration.js', import.meta.url), 'utf8'), fresh);
+  const lazy = fresh.__agyCreatePrismIntegration({ options: () => ({ enabled: true, wallpaperEnabled: false }), uiText: (zh, en) => en });
+  lazy.selectWallpaper(new File(['png-fixture'], 'first.png', { type: 'image/png' }));
+  assert.deepEqual(firstUse.map(v => v?.fileName), ['first.png'], 'the chosen file must reach optics even when it did not exist yet');
+  lazy.dispose();
 });
 
 test('Prism RPC scopes the diff and keeps unfinished or consent-sensitive capabilities out of the renderer', async () => {

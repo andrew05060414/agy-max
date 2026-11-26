@@ -1209,6 +1209,41 @@ test('standalone mountPopoverVial, hidden peek deference, image wallpaper, and t
   optics.dispose();
 });
 
+test('a wallpaper picked while the setting is off appears once the setting turns on, and is forgotten only when cleared', async () => {
+  const m = createMockEnv({ reducedMotion: true });
+  let opts = { enabled: true, motionLevel: 'off', wallpaperEnabled: false };
+  const optics = m.context.__agyCreateOptics({ options: () => opts });
+  const layer = () => m.document.querySelector('[data-testid="agy-wallpaper-layer"] img');
+  const media = { hasMedia: true, kind: 'image', fileName: 'wall.png', mediaUrl: 'blob:wall-1' };
+  assert.equal(typeof optics.setWallpaperStatus, 'function');
+
+  // First use: the file is chosen before the setting is switched on.
+  optics.setWallpaperStatus(media);
+  assert.equal(layer(), null, 'not shown while the setting is off');
+  opts = { ...opts, wallpaperEnabled: true };
+  optics.sync(opts);
+  assert.equal(layer()?.getAttribute('src'), 'blob:wall-1');
+  assert.equal(m.document.documentElement.getAttribute('data-agy-wallpaper'), '1');
+
+  // Toggling the setting off and on again keeps the same picture.
+  opts = { ...opts, wallpaperEnabled: false };
+  optics.sync(opts);
+  assert.equal(layer(), null);
+  assert.equal(m.document.documentElement.getAttribute('data-agy-wallpaper'), null);
+  opts = { ...opts, wallpaperEnabled: true };
+  optics.sync(opts);
+  assert.equal(layer()?.getAttribute('src'), 'blob:wall-1');
+
+  // Clearing really forgets it.
+  opts = { ...opts, wallpaperEnabled: false };
+  optics.sync(opts);
+  optics.setWallpaperStatus(null);
+  opts = { ...opts, wallpaperEnabled: true };
+  optics.sync(opts);
+  assert.equal(layer(), null);
+  optics.dispose();
+});
+
 test('MutationObserver isolates subtree:false attributes on body/documentElement and prunes detached DOM references', () => {
   const m = createMockEnv({ dark: true });
   const nav = m.document.createElement('nav');
