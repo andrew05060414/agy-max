@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { createSshCredentialVault, sshVaultTarget, withSshAskpass } from '../lib/ssh-vault.mjs';
+import { createSshCredentialVault, ensureLocalPublicKey, sshVaultTarget, withSshAskpass } from '../lib/ssh-vault.mjs';
 import { createSshProjectsStore, discoverLocalCapabilities, parseSshConfigHosts, readSshProjectMarker } from '../lib/ssh-projects.mjs';
 import { buildScpArgs, buildSshArgs, createSshRunner, makeRemoteUri, parseRemoteUri, shQuote } from '../lib/ssh-runner.mjs';
 import { evaluateSshBoundaryHook } from '../lib/ssh-boundary.mjs';
@@ -527,4 +527,72 @@ test('native-ssh-projects injects SSH Server into Add Resource menu and swaps si
   ui.dispose();
   assert.equal(sshIcon.querySelector('[data-agy-ssh-cloud-icon]'), null);
   assert.equal(origSvg.style.display, '');
+});
+
+test('ssh runner retries handshake drops once, keeps auth errors, falls back to legacy scp, and uses a per-server key', async () => {
+  const tmp = makeTempDir('agy-ssh-hardening-');
+  const home = join(tmp, 'home');
+  const store = createSshProjectsStore({ dataDir: join(tmp, 'data'), home, vault: makeFakeVault() });
+  const host = store.upsertHost({ name: 'gpu', host: '10.0.0.8', user: 'root', port: 2222, authType: 'key' });
+  const runnerWith = spawnProcess => createSshRunner({ store, spawnProcess, platform: 'darwin', home, retryDelayMs: 0 });
+
+  // ssh only offers the configured key when one is set, so a crowded ssh-agent cannot exhaust auth attempts.
+  assert.equal(buildSshArgs(host).args.includes('IdentitiesOnly=yes'), false);
+  assert.equal(buildSshArgs({ ...host, identityFile: '/k' }).args.includes('IdentitiesOnly=yes'), true);
+  assert.equal(buildScpArgs({ ...host, identityFile: '/k' }).args.includes('IdentitiesOnly=yes'), true);
+
+  // A dropped handshake is retried once and then succeeds.
+  let sshCalls = 0;
+  const flaky = makeMockSpawn(({ cmd }) => {
+    if (cmd !== 'ssh') return { code: 0 };
+    sshCalls++;
+    return sshCalls === 1
+      ? { code: 255, stderr: 'kex_exchange_identification: Connection closed by remote host\nConnection closed by 10.0.0.8 port 2222\n' }
+      : { code: 0, stdout: 'HOME=/root\nHOSTNAME=gpu\n' };
+  });
+  assert.equal((await runnerWith(flaky).testConnection(host.id)).homeDir, '/root');
+  assert.equal(sshCalls, 2);
+
+  // A real auth failure is not retried and says so.
+  const denied = makeMockSpawn(() => ({ code: 255, stderr: 'root@10.0.0.8: Permission denied (publickey).\n' }));
+  await assert.rejects(runnerWith(denied).testConnection(host.id), /认证失败/);
+  assert.equal(denied.calls.length, 1);
+
+  // A handshake that keeps dropping gets exactly one retry and a message that does not blame the key.
+  const dropping = makeMockSpawn(() => ({ code: 255, stderr: 'kex_exchange_identification: read: Connection reset by peer\n' }));
+  await assert.rejects(runnerWith(dropping).testConnection(host.id), /握手被中途断开.*不需要重装公钥/);
+  assert.equal(dropping.calls.length, 2);
+
+  // A server without the sftp subsystem gets the upload again over the legacy scp protocol.
+  const noSftp = makeMockSpawn(({ cmd, args }) => (cmd !== 'scp' || args[0] === '-O'
+    ? { code: 0 }
+    : { code: 1, stderr: 'subsystem request failed on channel 0\nscp: Connection closed\n' }));
+  const local = join(tmp, 'a.txt');
+  writeFileSync(local, 'x');
+  const tx = await runnerWith(noSftp).transfer(host.id, { direction: 'upload', localPath: local, remotePath: '/root/a.txt' });
+  assert.equal(tx.legacyProtocol, true);
+  assert.deepEqual(noSftp.calls.map(c => c.args[0] === '-O'), [false, true]);
+
+  // One-click key install sends this server's own key, never the shared default one.
+  const sshDir = join(home, '.ssh');
+  mkdirSync(sshDir, { recursive: true });
+  writeFileSync(join(sshDir, 'id_ed25519.pub'), 'ssh-ed25519 SHARED shared');
+  writeFileSync(join(sshDir, 'agy-10.0.0.8-2222_ed25519.pub'), 'ssh-ed25519 PERHOST gpu');
+  let sentKey = '';
+  const keySpawn = makeMockSpawn(({ cmd, stdin }) => { if (cmd === 'ssh') sentKey = stdin; return { code: 0 }; });
+  const installed = await runnerWith(keySpawn).installPublicKey(host.id);
+  assert.equal(installed.privateKeyPath, join(sshDir, 'agy-10.0.0.8-2222_ed25519'));
+  assert.match(sentKey, /PERHOST/);
+
+  // A missing per-server key is generated under its own name even when a default key exists.
+  let keygenArgs = null;
+  const generated = ensureLocalPublicKey({
+    home, keyName: 'agy-new-host_ed25519',
+    runSpawn: (cmd, args) => { keygenArgs = args; writeFileSync(`${args[args.indexOf('-f') + 1]}.pub`, 'ssh-ed25519 NEW new'); return { status: 0 }; }
+  });
+  assert.equal(generated.created, true);
+  assert.equal(generated.privateKeyPath, join(sshDir, 'agy-new-host_ed25519'));
+  assert.equal(keygenArgs.includes('agy-max-ssh agy-new-host_ed25519'), true);
+
+  rmSync(tmp, { recursive: true, force: true });
 });
