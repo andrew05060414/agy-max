@@ -310,8 +310,19 @@ export const SITE_CONTENT = {
       allReleasesLabel: '在 GitHub 查看全部版本',
       entries: [
         {
-          version: 'v1.3.0',
+          version: 'v1.4.0',
           tag: '最新',
+          title: '单窗口 SSH 远程项目、行内图片引用芯片、插件市场动态翻译与 Win11 深度兼容',
+          highlights: [
+            '在「创建项目 -> 远程 -> + Add Resource」新增 SSH 服务器入口，单窗口免远端二次授权管理 Linux 服务器，打通内置 MCP、不断流后台长任务、远端看图/Notebook、项目级 Skill/插件筛选、远程文件树与 Git Diff、跨机互传及内置终端。',
+            '新增 [Image #N] 行内图片引用芯片与高清灯箱，支持悬停预览、按正文顺序自动对齐图片附件与跨回合模型映射。',
+            '插件市场与详情页支持动态中文翻译与本地缓存，随语言设置即时切换。',
+            '全面加固 Windows 11 凭据库、SSH 路径解析、回环免代理直连与安装竞态重试，并同步最新上游 Prism 与工作台体验修复。'
+          ]
+        },
+        {
+          version: 'v1.3.0',
+          tag: '',
           title: '文件树原地编辑、Kiro / 系统编辑器兜底与 /goal 暂停续跑',
           highlights: [
             '右侧原生「文件结构」支持原地编辑 UTF-8 代码与文本文件，⌘S / Ctrl+S 保存前自动比对修改时间防覆盖，采用临时文件原子替换并保留 CRLF 换行。',
@@ -653,8 +664,19 @@ export const SITE_CONTENT = {
       allReleasesLabel: 'View all releases on GitHub',
       entries: [
         {
-          version: 'v1.3.0',
+          version: 'v1.4.0',
           tag: 'Latest',
+          title: 'Single-window SSH Remote Projects, inline image chips, dynamic marketplace translation & Win11 hardening',
+          highlights: [
+            'Added SSH Server under Create Project -> Remote -> + Add Resource for single-window Linux remote projects without remote re-auth, complete with built-in MCP, detached long-running jobs, remote image/notebook viewing, per-project Skill/Plugin scoping, remote File Tree & Git Diff, cross-machine transfers, and built-in SSH Terminal.',
+            'Added [Image #N] inline image mention chips with hover previews, full-screen lightbox navigation, automatic attachment ordering, and cross-turn model image mapping.',
+            'Added dynamic Chinese translation with caching for the plugin marketplace catalog and detail views.',
+            'Hardened Windows 11 Credential Manager, loopback CDP proxy bypass, SSH path handling, and staging retries, alongside upstream Prism and workbench fixes.'
+          ]
+        },
+        {
+          version: 'v1.3.0',
+          tag: '',
           title: 'Inline File Tree editing, Kiro & system editor fallback, and /goal resume',
           highlights: [
             'Edit UTF-8 code and text files right inside the Side Panel File Tree preview; ⌘S / Ctrl+S verifies file mtime before atomic replacement and preserves CRLF line endings.',

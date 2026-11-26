@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, utimesSync, symlinkSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, utimesSync, symlinkSync, accessSync, constants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -113,16 +113,21 @@ test('macOS launcher app copies source icon when available, clears stale icon wh
 
 test('macOS launcher waits for a quitting Antigravity to exit before opening, but not for a running one', { skip: process.platform !== 'darwin' }, async () => {
   const root = mkdtempSync(join(tmpdir(), 'agy-launcher-quit-'));
-  const runLauncher = (launcher, env) => new Promise(done => spawn(launcher, [], { env, stdio: 'ignore' }).on('exit', done));
+  // Invoke via `/bin/sh` rather than exec'ing inside a `.app` bundle directly so macOS LaunchServices doesn't index temp test bundles.
+  const runLauncher = (launcher, env) => {
+    accessSync(launcher, constants.X_OK);
+    return new Promise(done => spawn('/bin/sh', [launcher], { env, stdio: 'ignore' }).on('exit', done));
+  };
   try {
-    const home = join(root, 'home'), sourceApp = join(root, 'Apps', 'Antigravity.app'), stubDir = join(root, 'stub');
+    // Avoid a `.app` directory with a copied Mach-O binary so macOS Gatekeeper/LaunchServices won't flag a fake "Antigravity.app" as damaged.
+    const home = join(root, 'home'), sourceApp = join(root, 'Apps', 'Antigravity-fixture'), stubDir = join(root, 'stub');
     const fakeMain = join(sourceApp, 'Contents', 'MacOS', 'Antigravity');
     const mainLog = join(home, 'Library', 'Logs', 'Antigravity', 'main.log');
     const openLog = join(root, 'open.log');
     mkdirSync(dirname(fakeMain), { recursive: true });
     mkdirSync(dirname(mainLog), { recursive: true });
     mkdirSync(stubDir, { recursive: true });
-    copyFileSync('/bin/sleep', fakeMain);
+    symlinkSync('/bin/sleep', fakeMain);
     writeFileSync(join(stubDir, 'open'), '#!/bin/sh\n{ if kill -0 "$FAKE_PID" 2>/dev/null; then echo alive; else echo gone; fi; echo "$@"; } > "$OPEN_LOG"\n', { mode: 0o755 });
     configureLaunchers({ home, dataDir: join(root, 'data'), platform: 'darwin', sandbox: true, macSourceApp: sourceApp });
     const launcher = join(home, 'Applications', 'Antigravity (Max).app', 'Contents', 'MacOS', 'launcher');

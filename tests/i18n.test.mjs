@@ -440,3 +440,181 @@ test('marketplace dynamic translation batches descriptions on /customizations, p
 
   loc.dispose();
 });
+
+test('marketplace translation works inside data-testid="sidebar-split" > .agy-sheet and plugin detail markdown while skipping <title> and left sidebar', async () => {
+  const makeSheetNode = (value, { inSheet = true, inSidebar = false, inTitle = false, inMarkdownP = false, inCardTitleLink = false, className = '' } = {}) => {
+    const attrMap = new Map();
+    const el = {
+      nodeType: 1,
+      className,
+      childElementCount: inMarkdownP ? 1 : 0,
+      isConnected: true,
+      closest: sel => {
+        const parts = sel.split(',').map(s => s.trim());
+        if (inTitle && (parts.includes('title') || parts.includes('head'))) return {};
+        if (inSidebar && (parts.includes('[data-testid="sidebar-navigation-items"]') || parts.includes('[data-testid="conversation-row-sidebar"]'))) return {};
+        if (inCardTitleLink && parts.includes('[data-testid="customization-card"] a')) return {};
+        if (inSheet && parts.includes('.agy-sheet')) return {};
+        if (inMarkdownP && (parts.includes('[data-markdown-root]') || parts.includes('p'))) return {};
+        if (parts.includes('[data-testid*="sidebar"]')) return {}; // Simulates outer sidebar-split wrapper!
+        return null;
+      },
+      getAttribute: k => (attrMap.has(k) ? attrMap.get(k) : null),
+      hasAttribute: k => attrMap.has(k),
+      setAttribute: (k, v) => { attrMap.set(k, String(v)); },
+      removeAttribute: k => { attrMap.delete(k); }
+    };
+    return { nodeType: 3, nodeValue: value, isConnected: true, parentElement: el };
+  };
+
+  const docTitle = makeSheetNode('(1) Antigravity', { inSheet: false, inTitle: true });
+  const leftSidebarRow = makeSheetNode('Investigate cloud risk from your IDE', { inSheet: false, inSidebar: true });
+  const lowercasePluginLinkTitle = makeSheetNode('cobrief procurement helper', { inSheet: true, inCardTitleLink: true });
+  const cardLookerDesc = makeSheetNode('Connect to your managed Looker MCP server to explore data.', { inSheet: true, className: 'text-sm text-muted-foreground truncate' });
+  const detailReadmeProse = makeSheetNode('Pull version-specific documentation and code examples directly into ', { inSheet: true, inMarkdownP: true });
+  const seeMoreShelf = makeSheetNode('See more in Developer Tools', { inSheet: true });
+
+  const allNodes = [docTitle, leftSidebarRow, lowercasePluginLinkTitle, cardLookerDesc, detailReadmeProse, seeMoreShelf];
+  const document = {
+    nodeType: 9,
+    body: { nodeType: 1, getAttribute: () => null, closest: () => null, querySelectorAll: () => [] },
+    querySelector: sel => (sel.includes('.agy-sheet') ? {} : null),
+    createTreeWalker: () => {
+      let idx = 0;
+      return { nextNode: () => allNodes[idx++] || null };
+    },
+    querySelectorAll: () => []
+  };
+
+  const batchCalls = [];
+  const context = vm.createContext({
+    document,
+    location: { pathname: '/customizations/marketplaces/google3/plugins/looker' },
+    setTimeout,
+    clearTimeout,
+    NodeFilter: { SHOW_TEXT: 4 },
+    MutationObserver: class { observe() {} disconnect() {} },
+    __agyToZhTw: toZhTw
+  });
+  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  const loc = context.__agyLocalization;
+
+  assert.equal(seeMoreShelf.nodeValue, '查看更多 开发者工具');
+
+  loc.configureMarketplace({
+    enabled: true,
+    translateBatch: async texts => {
+      batchCalls.push([...texts]);
+      return {
+        ok: true,
+        translations: {
+          'Connect to your managed Looker MCP server to explore data.': '连接到托管的 Looker MCP 服务器以探索数据。',
+          'Pull version-specific documentation and code examples directly into': '直接将特定版本的文档与代码示例拉取到'
+        }
+      };
+    }
+  });
+
+  await new Promise(r => setTimeout(r, 90));
+
+  assert.equal(batchCalls.length, 1);
+  assert.equal(docTitle.nodeValue, '(1) Antigravity');
+  assert.equal(leftSidebarRow.nodeValue, 'Investigate cloud risk from your IDE');
+  assert.equal(lowercasePluginLinkTitle.nodeValue, 'cobrief procurement helper');
+  assert.equal(cardLookerDesc.nodeValue, '连接到托管的 Looker MCP 服务器以探索数据。');
+  assert.equal(detailReadmeProse.nodeValue, '直接将特定版本的文档与代码示例拉取到 ');
+  loc.dispose();
+});
+
+test('plugin detail translates suggested prompt buttons, skill row descriptions, and footer disclaimer while preserving slash commands and MCP CLI args', async () => {
+  const makeDetailNode = (value, { className = '', inPromptBtn = false, inGenericBtn = false, isDocRowTitle = false, isDisclaimer = false } = {}) => {
+    const attrMap = new Map();
+    const promptBtnObj = { matches: sel => sel === '[data-testid="plugin-suggested-prompt-row"]' };
+    const genericBtnObj = { matches: () => false };
+    const el = {
+      nodeType: 1,
+      className,
+      childElementCount: isDisclaimer ? 1 : 0,
+      isConnected: true,
+      matches: sel => (isDisclaimer && sel === '[data-testid="third-party-tools-disclaimer"]'),
+      closest: sel => {
+        const parts = sel.split(',').map(s => s.trim());
+        if (isDocRowTitle && parts.includes('[data-testid="doc-row-title"]')) return {};
+        if (parts.includes('.agy-sheet')) return {};
+        if (parts.includes('button') || parts.includes('[role="button"]')) {
+          if (inPromptBtn) return promptBtnObj;
+          if (inGenericBtn) return genericBtnObj;
+        }
+        return null;
+      },
+      getAttribute: k => (attrMap.has(k) ? attrMap.get(k) : null),
+      hasAttribute: k => attrMap.has(k),
+      setAttribute: (k, v) => { attrMap.set(k, String(v)); },
+      removeAttribute: k => { attrMap.delete(k); }
+    };
+    return { nodeType: 3, nodeValue: value, isConnected: true, parentElement: el };
+  };
+
+  const suggestedPrompt = makeDetailNode('Resize this Canva design for Instagram and LinkedIn', { className: 'text-foreground min-w-0 flex-1', inPromptBtn: true });
+  const skillSlug = makeDetailNode('/canva-brand-check', { className: 'font-medium text-foreground', inGenericBtn: true, isDocRowTitle: true });
+  const skillDesc = makeDetailNode('Check a Canva design against a brand kit and report where it diverges.', { className: 'text-muted-foreground truncate', inGenericBtn: true });
+  const mcpCmd = makeDetailNode('npx -y @canva/cli-mcp --port 3000', { className: 'text-muted-foreground truncate' });
+  const actionBtn = makeDetailNode('Sign in to Canva account', { className: 'agy-button', inGenericBtn: true });
+  const stdDisclaimer = makeDetailNode('Google does not control the availability or functionality of third party developer tools. Your data from third party developer tools connected to your Antigravity instance may be shared with Google. Google will protect any such data in accordance with the Google Privacy Policy, found here: ', { className: 'text-sm text-muted-foreground', isDisclaimer: true });
+
+  const allNodes = [suggestedPrompt, skillSlug, skillDesc, mcpCmd, actionBtn, stdDisclaimer];
+  const document = {
+    nodeType: 9,
+    body: { nodeType: 1, getAttribute: () => null, closest: () => null, querySelectorAll: () => [] },
+    querySelector: sel => (sel.includes('.agy-sheet') ? {} : null),
+    createTreeWalker: () => {
+      let idx = 0;
+      return { nextNode: () => allNodes[idx++] || null };
+    },
+    querySelectorAll: () => []
+  };
+
+  const batchCalls = [];
+  const context = vm.createContext({
+    document,
+    location: { pathname: '/customizations/marketplaces/google3/plugins/canva' },
+    setTimeout,
+    clearTimeout,
+    NodeFilter: { SHOW_TEXT: 4 },
+    MutationObserver: class { observe() {} disconnect() {} },
+    __agyToZhTw: toZhTw
+  });
+  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  const loc = context.__agyLocalization;
+
+  assert.ok(stdDisclaimer.nodeValue.startsWith('Google 不控制第三方开发者工具的可用性或功能。'));
+  assert.ok(stdDisclaimer.nodeValue.endsWith(' '));
+
+  loc.configureMarketplace({
+    enabled: true,
+    translateBatch: async texts => {
+      batchCalls.push([...texts]);
+      return {
+        ok: true,
+        translations: {
+          'Resize this Canva design for Instagram and LinkedIn': '针对 Instagram 和 LinkedIn 调整此 Canva 设计的尺寸',
+          'Check a Canva design against a brand kit and report where it diverges.': '对照品牌规范检查 Canva 设计并报告不一致之处。'
+        }
+      };
+    }
+  });
+
+  await new Promise(r => setTimeout(r, 90));
+
+  assert.equal(batchCalls.length, 1);
+  assert.deepEqual(batchCalls[0].sort(), [
+    'Check a Canva design against a brand kit and report where it diverges.',
+    'Resize this Canva design for Instagram and LinkedIn'
+  ]);
+  assert.equal(suggestedPrompt.nodeValue, '针对 Instagram 和 LinkedIn 调整此 Canva 设计的尺寸');
+  assert.equal(skillSlug.nodeValue, '/canva-brand-check');
+  assert.equal(skillDesc.nodeValue, '对照品牌规范检查 Canva 设计并报告不一致之处。');
+  assert.equal(mcpCmd.nodeValue, 'npx -y @canva/cli-mcp --port 3000');
+  assert.equal(actionBtn.nodeValue, 'Sign in to Canva account');
+  loc.dispose();
+});

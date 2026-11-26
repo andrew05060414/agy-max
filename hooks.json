@@ -15,5 +15,27 @@
         "timeout": 5
       }
     ]
+  },
+  "agy-max-ssh-boundary": {
+    "enabled": true,
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node -e \"var f=require('fs'),p=require('path'),o=require('os'),u=require('url'),e=process.env,h='',hit=0;try{h=o.homedir()}catch(x){}for(var d of[e.PLUGIN_ROOT,e.AGY_PLUGIN_ROOT,h?p.join(h,'.gemini','config','plugins','agy-max'):'','.']){if(d){var s=p.resolve(d,'scripts','ssh-boundary-hook.mjs');if(f.existsSync(s)&&f.existsSync(p.resolve(d,'plugin.json'))){hit=1;process.argv.splice(1,0,s);import(u.pathToFileURL(s).href).catch(function(){process.stdout.write('{}')});break;}}}if(hit===0)process.stdout.write('{}')\" SessionStart",
+        "timeout": 5
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"var f=require('fs'),p=require('path'),o=require('os'),u=require('url'),e=process.env,h='',hit=0;try{h=o.homedir()}catch(x){}for(var d of[e.PLUGIN_ROOT,e.AGY_PLUGIN_ROOT,h?p.join(h,'.gemini','config','plugins','agy-max'):'','.']){if(d){var s=p.resolve(d,'scripts','ssh-boundary-hook.mjs');if(f.existsSync(s)&&f.existsSync(p.resolve(d,'plugin.json'))){hit=1;process.argv.splice(1,0,s);import(u.pathToFileURL(s).href).catch(function(){process.stdout.write('{\\\"decision\\\":\\\"allow\\\"}')});break;}}}if(hit===0)process.stdout.write('{\\\"decision\\\":\\\"allow\\\"}')\" PreToolUse",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
