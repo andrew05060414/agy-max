@@ -715,3 +715,231 @@ test('sent message pipeline filters duplicate images, renders inline chips, and 
   lightboxProps.onClose();
   assert.equal(lightboxProps, null);
 });
+
+test('multi-image paste on new chat keeps all images and exact current-turn mapping when clearInput + optimistic bubble run before send', () => {
+  const effects = [];
+  let stateSlots = [];
+  let refs = [];
+  let hookIdx = 0;
+  let refIdx = 0;
+  const miniReact = {
+    Fragment: Symbol('Fragment'),
+    createContext: d => ({ _current: d, Provider: ({ children }) => children }),
+    useContext: c => c._current,
+    useSyncExternalStore: (_, get) => get(),
+    useMemo: fn => fn(),
+    useCallback: fn => fn,
+    useRef(v) { const i = refIdx++; if (!(i in refs)) refs[i] = { current: v }; return refs[i]; },
+    useEffect(fn) { effects.push(fn); },
+    useState(init) { const i = hookIdx++; if (!(i in stateSlots)) stateSlots[i] = typeof init === 'function' ? init() : init; return [stateSlots[i], v => { stateSlots[i] = v; }]; },
+    createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children } })
+  };
+  function render(n) {
+    if (!n || typeof n !== 'object') return n;
+    if (Array.isArray(n)) return n.map(render);
+    if (typeof n.type === 'function') return render(n.type(n.props || {}));
+    return n;
+  }
+
+  let editorDoc = { root: { children: [{ type: 'paragraph', children: [] }] } };
+  let listenerCount = 0;
+  const mediaListeners = new Set();
+  const editor = {
+    getEditorState: () => ({ toJSON: () => editorDoc }),
+    setEditorState: s => { editorDoc = s.toJSON(); },
+    registerUpdateListener: () => { listenerCount++; return () => {}; }
+  };
+  let currentMedia = [];
+  const box = {
+    getMediaAttachments: () => currentMedia,
+    subscribeMediaChange: fn => { mediaListeners.add(fn); return () => mediaListeners.delete(fn); }
+  };
+  // All 3 pasted screenshots share identical original filename "image.png" but distinct staged .user_uploaded URIs
+  const img1 = { mimeType: 'image/png', description: 'image.png', uri: 'file:///brain/.user_uploaded/media_101_aaa.png', payload: { case: 'inlineData', value: new Uint8Array([1]) } };
+  const img2 = { mimeType: 'image/png', description: 'image.png', uri: 'file:///brain/.user_uploaded/media_102_bbb.png', payload: { case: 'inlineData', value: new Uint8Array([2]) } };
+  const img3 = { mimeType: 'image/png', description: 'image.png', uri: 'file:///brain/.user_uploaded/media_103_ccc.png', payload: { case: 'inlineData', value: new Uint8Array([3]) } };
+  let optimisticDomSteps = [];
+
+  const ctx = createHarness({
+    React: miniReact,
+    B: miniReact,
+    IJ: (_, s) => ({ toJSON: () => JSON.parse(s) }),
+    __agyNativeBindings: {
+      names: { composerMediaStrip: 'symAed' },
+      commonSchemas: { ContextScopeItemSchema: {}, DynamicContextScopeItemSchema: {}, MediaSchema: {}, TextOrScopeItemSchema: {} }
+    },
+    symAed: () => null,
+    document: {
+      querySelector: () => null,
+      querySelectorAll: sel => sel === '[data-testid="user-input-step"]' ? optimisticDomSteps : []
+    }
+  });
+  ctx.__agyNativeAdapter.findComposer = () => ({ editor, box });
+  ctx.__agyNativeAdapter.setInlineImages(true);
+
+  const flushAed = list => {
+    currentMedia = list;
+    hookIdx = 0; refIdx = 0;
+    render(miniReact.createElement(ctx.symAed, { selectedMedia: currentMedia, setSelectedMedia: next => { currentMedia = typeof next === 'function' ? next(currentMedia) : next; } }));
+    while (effects.length) effects.shift()();
+  };
+
+  flushAed([img1]);
+  flushAed([img1, img2]);
+  flushAed([img1, img2, img3]);
+
+  // Same editor reuses the single composer record instead of leaking duplicate listeners
+  assert.equal(listenerCount, 1);
+
+  const items = [{ chunk: { case: 'text', value: '[Image #1] [Image #2] [Image #3] 帮我看一下' } }];
+  const outgoingMedia = [img1, img2, img3];
+
+  // Simulate Antigravity eLc: 1) clearInput() empties editor & media, firing subscribeMediaChange
+  editorDoc = { root: { children: [{ type: 'paragraph', children: [] }] } };
+  currentMedia = [];
+  for (const fn of mediaListeners) fn();
+
+  // 2) Optimistic user-input-step mounts with newly generated cascadeId BEFORE wrappedSend runs
+  optimisticDomSteps = [{
+    querySelector: sel => sel === '[data-testid="pending-bubble-pulse"]' ? {} : null,
+    __reactFiber$opt: {
+      memoizedProps: { cascadeId: 'new-conv-1', metadata: { index: 0 }, step: { items, media: outgoingMedia } },
+      return: null
+    }
+  }];
+
+  // 3) wrappedSend runs prepareOutgoingPayload
+  const out = ctx.__agyInlineImages.prepareOutgoingPayload({
+    cascadeId: 'new-conv-1',
+    items,
+    media: outgoingMedia
+  });
+
+  assert.equal(out.payload.media.length, 3);
+  assert.deepEqual(Array.from(out.payload.media, m => m.uri), [img1.uri, img2.uri, img3.uri]);
+  assert.deepEqual(Array.from(out.payload.media, m => m.description), [
+    '[Image #1] image.png',
+    '[Image #2] image.png',
+    '[Image #3] image.png'
+  ]);
+  assert.ok(out.promptSection.includes('Uploaded image 1 = [Image #1] (media_101_aaa.png, original: image.png)'));
+  assert.ok(out.promptSection.includes('Uploaded image 2 = [Image #2] (media_102_bbb.png, original: image.png)'));
+  assert.ok(out.promptSection.includes('Uploaded image 3 = [Image #3] (media_103_ccc.png, original: image.png)'));
+  assert.equal(out.promptSection.includes('Earlier turns in this conversation:'), false);
+});
+
+test('inserting a chip at the front immediately reorders selectedMedia to dialog order and Undo clears stale deleted uri', async () => {
+  const effects = [];
+  let stateSlots = [];
+  let refs = [];
+  let hookIdx = 0;
+  let refIdx = 0;
+  let lexicalListener = null;
+  const miniReact = {
+    Fragment: Symbol('Fragment'),
+    createContext: d => ({ _current: d, Provider: ({ children }) => children }),
+    useContext: c => c._current,
+    useSyncExternalStore: (_, get) => get(),
+    useMemo: fn => fn(),
+    useCallback: fn => fn,
+    useRef(v) { const i = refIdx++; if (!(i in refs)) refs[i] = { current: v }; return refs[i]; },
+    useEffect(fn) { effects.push(fn); },
+    useState(init) { const i = hookIdx++; if (!(i in stateSlots)) stateSlots[i] = typeof init === 'function' ? init() : init; return [stateSlots[i], v => { stateSlots[i] = v; }]; },
+    createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children } })
+  };
+  function render(n) {
+    if (!n || typeof n !== 'object') return n;
+    if (Array.isArray(n)) return n.map(render);
+    if (typeof n.type === 'function') return render(n.type(n.props || {}));
+    return n;
+  }
+
+  let nodesList = [];
+  const makeEditorState = () => ({
+    toJSON: () => ({ root: { type: 'root', children: [{ type: 'paragraph', children: nodesList.map(n => ({ ...n, data: n.data ? { ...n.data } : undefined })) }] } })
+  });
+  const nodeWrappers = [];
+  const editor = {
+    getEditorState: makeEditorState,
+    _pendingEditorState: { _nodeMap: new Map() },
+    update(fn) {
+      editor._pendingEditorState._nodeMap = new Map(nodeWrappers.map((w, i) => [String(i), w]));
+      fn();
+    },
+    registerUpdateListener(fn) { lexicalListener = fn; return () => {}; }
+  };
+
+  let insertAtFront = false;
+  const GyMock = (_ed, scopeItem) => {
+    const dc = scopeItem.scopeItem.value;
+    const rawObj = {
+      type: 'contextScopeItemMention',
+      trigger: '@',
+      value: 'contextScopeItemMention',
+      data: { data: JSON.stringify({ dynamicContext: dc }) },
+      version: 1
+    };
+    const wrapper = {
+      getType: () => 'contextScopeItemMention',
+      getData: () => rawObj.data,
+      setData: next => { rawObj.data = next; }
+    };
+    nodeWrappers.push(wrapper);
+    if (insertAtFront) nodesList.unshift(rawObj);
+    else nodesList.push(rawObj);
+  };
+
+  const img1 = { mimeType: 'image/png', description: 'first.png', uri: 'file:///.user_uploaded/m1.png', payload: { case: 'inlineData', value: new Uint8Array([1, 2]) } };
+  const img2 = { mimeType: 'image/png', description: 'second.png', uri: 'file:///.user_uploaded/m2.png', payload: { case: 'inlineData', value: new Uint8Array([3, 4]) } };
+  let currentMedia = [];
+  const box = { getMediaAttachments: () => currentMedia };
+
+  const ctx = createHarness({
+    React: miniReact,
+    B: miniReact,
+    Gy: GyMock,
+    __agyNativeBindings: {
+      names: { composerMediaStrip: 'symAed' },
+      commonSchemas: { ContextScopeItemSchema: {}, DynamicContextScopeItemSchema: {}, MediaSchema: {}, TextOrScopeItemSchema: {} }
+    },
+    symAed: () => null
+  });
+  ctx.__agyNativeAdapter.findComposer = () => ({ editor, box });
+  ctx.__agyNativeAdapter.setInlineImages(true);
+
+  const flushAed = list => {
+    currentMedia = list;
+    hookIdx = 0; refIdx = 0;
+    render(miniReact.createElement(ctx.symAed, {
+      selectedMedia: currentMedia,
+      setSelectedMedia: next => { currentMedia = typeof next === 'function' ? next(currentMedia) : next; }
+    }));
+    while (effects.length) effects.shift()();
+  };
+
+  // 1. Paste img1 -> [Image #1]
+  flushAed([img1]);
+  assert.deepEqual(Array.from(currentMedia, m => m.description), ['first.png']);
+
+  // 2. Move cursor to front and paste img2 -> text is [Image #2] [Image #1], without typing any extra character!
+  insertAtFront = true;
+  flushAed([img1, img2]);
+  // Immediately reordered to [img2, img1] matching dialog order!
+  assert.deepEqual(Array.from(currentMedia, m => m.description), ['second.png', 'first.png']);
+
+  // 3. Simulate Backspace deleting [Image #2]
+  const removedChip = nodesList.shift();
+  await new Promise(r => queueMicrotask(r));
+  lexicalListener({ editorState: makeEditorState() });
+  assert.deepEqual(Array.from(currentMedia, m => m.description), ['first.png']);
+
+  // 4. Simulate Cmd+Z Undo restoring [Image #2] at the front -> stale deleted uri is cleared so lbc re-uploads!
+  await new Promise(r => queueMicrotask(r));
+  nodesList.unshift(removedChip);
+  lexicalListener({ editorState: makeEditorState() });
+  assert.equal(currentMedia.length, 2);
+  assert.equal(currentMedia[0].description, 'second.png');
+  assert.equal(currentMedia[0].uri, '');
+  assert.equal(currentMedia[0].payload.value.length, 2);
+  assert.equal(currentMedia[1], img1);
+});
