@@ -651,3 +651,65 @@ test('fetchViaProxy sends HTTP request bytes through its SOCKS5 tunnel with zero
     await Promise.all([proxy, target].map(server => new Promise(resolve => server.close(resolve))));
   }
 });
+
+test('translateBatch packs single-line items into one request, falls back on line mismatch or multiline, and isolates custom cacheFile', async () => {
+  const dir = makeTempDir();
+  try {
+    const queries = [];
+    const fetchImpl = async url => {
+      const q = new URL(url).searchParams.get('q') || '';
+      queries.push(q);
+      if (q.includes('MERGE_BUG')) {
+        return jsonResponse([[['合并成了一行', q]], null, 'en']);
+      }
+      const lines = q.split('\n');
+      return jsonResponse([lines.map((line, idx) => [`译:${line}${idx < lines.length - 1 ? '\n' : ''}`, line]), null, 'en']);
+    };
+
+    const mpTranslator = createThoughtTranslator(dir, {
+      fetchImpl,
+      machineEndpoint: 'https://translate.example.test/translate_a/single',
+      cacheFile: 'marketplace-i18n-cache.json'
+    });
+
+    // 1. Packs 3 single-line English strings into 1 HTTP request & skips Chinese string
+    const res1 = await mpTranslator.translateBatch({
+      texts: [
+        'Read, draft, and edit docs.',
+        'Deploy and host your apps.',
+        '已经是中文的技能介绍',
+        'Read, draft, and edit docs.'
+      ],
+      mode: 'machine',
+      targetLang: 'zh-CN'
+    });
+    assert.equal(queries.length, 1);
+    assert.equal(queries[0], 'Read, draft, and edit docs.\nDeploy and host your apps.');
+    assert.deepEqual(res1.translations, {
+      'Read, draft, and edit docs.': '译:Read, draft, and edit docs.',
+      'Deploy and host your apps.': '译:Deploy and host your apps.'
+    });
+
+    // 2. Second call hits persistent cache with 0 HTTP requests + custom cache file exists on disk
+    const res2 = await mpTranslator.translateBatch({
+      texts: ['Read, draft, and edit docs.'],
+      mode: 'machine',
+      targetLang: 'zh-CN'
+    });
+    assert.equal(queries.length, 1);
+    assert.equal(res2.translations['Read, draft, and edit docs.'], '译:Read, draft, and edit docs.');
+    const savedRaw = readFileSync(join(dir, 'marketplace-i18n-cache.json'), 'utf8');
+    assert.ok(savedRaw.includes('译:Read, draft, and edit docs.'));
+
+    // 3. Mismatched line count automatically falls back to per-item translation without misaligning
+    const res3 = await mpTranslator.translateBatch({
+      texts: ['First item MERGE_BUG', 'Second clean item.'],
+      mode: 'machine',
+      targetLang: 'zh-CN'
+    });
+    assert.equal(res3.translations['First item MERGE_BUG'], '合并成了一行');
+    assert.equal(res3.translations['Second clean item.'], '译:Second clean item.');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

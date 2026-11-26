@@ -297,3 +297,146 @@ test('localizer leaves code editors, diff viewers and terminals untranslated', (
   assert.deepEqual(nodes.map(n => n.nodeValue), ['Settings', 'Settings', 'Settings', 'Settings', 'Settings', '设置']);
   loc.dispose();
 });
+
+test('marketplace dynamic translation batches descriptions on /customizations, preserves plugin names, and toggles zh-CN/zh-TW/en losslessly', async () => {
+  const makeNode = (value, { className = '', matches = [], fontWeight = '400', attrs = {} } = {}) => {
+    const attrMap = new Map(Object.entries(attrs));
+    const el = {
+      nodeType: 1,
+      className,
+      childElementCount: 0,
+      isConnected: true,
+      closest: sel => matches.some(m => sel.split(',').map(s => s.trim()).includes(m)) ? {} : null,
+      getAttribute: k => (attrMap.has(k) ? attrMap.get(k) : null),
+      hasAttribute: k => attrMap.has(k),
+      setAttribute: (k, v) => { attrMap.set(k, String(v)); },
+      removeAttribute: k => { attrMap.delete(k); },
+      __fontWeight: fontWeight
+    };
+    return { nodeType: 3, nodeValue: value, isConnected: true, parentElement: el };
+  };
+
+  // Static shelf headers + dynamic plugin titles + dynamic descriptions
+  const shelfFeatured = makeNode('Featured');
+  const shelfDevTools = makeNode('Developer Tools');
+  const shelfProdDesc = makeNode('Plan work, track issues, sign documents, and manage your notes and files.', { className: 'text-muted-foreground' });
+  const titleContext7 = makeNode('Context7', { className: 'font-semibold' });
+  const titleGoogleDocs = makeNode('Google Docs', { className: 'text-sm' });
+  const titleAtlassian = makeNode('Atlassian Teamwork Graph CLI', { className: 'text-sm' });
+  const publisherSlug = makeNode('By antigravity-plugins-official', { className: 'text-muted-foreground' });
+  const sidebarChatTitle = makeNode('Fix production authentication flow now.', { matches: ['aside'] });
+  const descDocs = makeNode('Read, draft, and edit docs.', { className: 'text-xs text-muted-foreground' });
+  const descNewPlugin = makeNode('Query live traces, evaluate prompts, and monitor production agents.', { className: 'text-xs text-muted-foreground' });
+  const descTruncated = makeNode('Build applications and shell workflows with the ...', { className: 'text-xs text-muted-foreground' });
+  const descAlreadyZh = makeNode('飞书多维表格操作：建表、字段、记录与视图管理。', { className: 'text-xs text-muted-foreground' });
+
+  const allNodes = [
+    shelfFeatured, shelfDevTools, shelfProdDesc,
+    titleContext7, titleGoogleDocs, titleAtlassian, publisherSlug, sidebarChatTitle,
+    descDocs, descNewPlugin, descTruncated, descAlreadyZh
+  ];
+
+  const storage = new Map();
+  const localStorage = {
+    getItem: k => (storage.has(k) ? storage.get(k) : null),
+    setItem: (k, v) => { storage.set(k, String(v)); }
+  };
+  const location = { pathname: '/customizations' };
+  const document = {
+    nodeType: 9,
+    body: { nodeType: 1, getAttribute: () => null, closest: () => null, querySelectorAll: () => [] },
+    createTreeWalker: () => {
+      let idx = 0;
+      return { nextNode: () => allNodes[idx++] || null };
+    },
+    querySelectorAll: () => []
+  };
+
+  const batchCalls = [];
+  const context = vm.createContext({
+    document,
+    location,
+    localStorage,
+    setTimeout,
+    clearTimeout,
+    getComputedStyle: el => ({ fontWeight: el.__fontWeight || '400' }),
+    NodeFilter: { SHOW_TEXT: 4 },
+    MutationObserver: class { observe() {} disconnect() {} },
+    __agyToZhTw: toZhTw
+  });
+  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  const loc = context.__agyLocalization;
+
+  // Static dictionary items translated immediately in 0ms
+  assert.equal(shelfFeatured.nodeValue, '精选推荐');
+  assert.equal(shelfDevTools.nodeValue, '开发者工具');
+  assert.equal(shelfProdDesc.nodeValue, '规划工作、跟踪问题、签署文档，并管理笔记与文件。');
+
+  // Wire dynamic batch translator
+  loc.configureMarketplace({
+    enabled: true,
+    translateBatch: async texts => {
+      batchCalls.push([...texts]);
+      return {
+        ok: true,
+        translations: {
+          'Read, draft, and edit docs.': '阅读、起草和编辑文档。',
+          'Query live traces, evaluate prompts, and monitor production agents.': '查询实时链路追踪、评估提示词并监控生产环境插件。',
+          'Build applications and shell workflows with the ...': '使用该平台构建应用程序与 Shell 工作流…'
+        }
+      };
+    }
+  });
+
+  await new Promise(r => setTimeout(r, 90));
+
+  // Only the 3 real English descriptions were sent in 1 single batch call
+  assert.equal(batchCalls.length, 1);
+  assert.deepEqual(batchCalls[0].sort(), [
+    'Build applications and shell workflows with the ...',
+    'Query live traces, evaluate prompts, and monitor production agents.',
+    'Read, draft, and edit docs.'
+  ]);
+
+  // Plugin names, publisher slug, sidebar, and already-Chinese skill remain untouched
+  assert.equal(titleContext7.nodeValue, 'Context7');
+  assert.equal(titleGoogleDocs.nodeValue, 'Google Docs');
+  assert.equal(titleAtlassian.nodeValue, 'Atlassian Teamwork Graph CLI');
+  assert.equal(publisherSlug.nodeValue, 'By antigravity-plugins-official');
+  assert.equal(sidebarChatTitle.nodeValue, 'Fix production authentication flow now.');
+  assert.equal(descAlreadyZh.nodeValue, '飞书多维表格操作：建表、字段、记录与视图管理。');
+
+  // Dynamic descriptions translated + original English preserved as hover tooltip
+  assert.equal(descDocs.nodeValue, '阅读、起草和编辑文档。');
+  assert.equal(descDocs.parentElement.getAttribute('title'), 'Read, draft, and edit docs.');
+  assert.equal(descNewPlugin.nodeValue, '查询实时链路追踪、评估提示词并监控生产环境插件。');
+  assert.equal(descTruncated.nodeValue, '使用该平台构建应用程序与 Shell 工作流…');
+
+  // Switch to Traditional Chinese (zh-TW): converts both static and dynamic in 0ms without extra RPC
+  loc.apply('zh-TW');
+  assert.equal(batchCalls.length, 1);
+  assert.equal(shelfFeatured.nodeValue, '精選推薦');
+  assert.equal(shelfProdDesc.nodeValue, '規劃工作、跟蹤問題、簽署文檔，並管理筆記與檔案。');
+  assert.equal(descNewPlugin.nodeValue, '查詢實時鏈路追蹤、評估提示詞並監控生產環境外掛。');
+
+  // Foreign user switches to English (en): restores exact original English & removes hover tooltip in 0ms
+  loc.apply('en');
+  assert.equal(batchCalls.length, 1);
+  assert.equal(shelfFeatured.nodeValue, 'Featured');
+  assert.equal(descDocs.nodeValue, 'Read, draft, and edit docs.');
+  assert.equal(descDocs.parentElement.hasAttribute('title'), false);
+  assert.equal(descNewPlugin.nodeValue, 'Query live traces, evaluate prompts, and monitor production agents.');
+
+  // Switch back to Simplified Chinese (zh-CN): instant memory cache hit, 0 extra RPC
+  loc.apply('zh-CN');
+  assert.equal(batchCalls.length, 1);
+  assert.equal(descDocs.nodeValue, '阅读、起草和编辑文档。');
+
+  // Independent toggle off keeps static UI Chinese ("精选推荐") while restoring dynamic descriptions to English
+  loc.configureMarketplace({ enabled: false });
+  assert.equal(shelfFeatured.nodeValue, '精选推荐');
+  assert.equal(descDocs.nodeValue, 'Read, draft, and edit docs.');
+  assert.equal(descDocs.parentElement.hasAttribute('title'), false);
+
+  loc.dispose();
+});
