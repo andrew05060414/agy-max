@@ -1614,6 +1614,11 @@ test('right-clicking a chat image opens the image menu; icons and file links do 
   });
   const fire = t => { let prevented = false; for (const fn of p.callbacks.get('contextmenu')) fn({ clientX: 10, clientY: 20, target: t, preventDefault() { prevented = true; }, stopPropagation() {} }); return prevented; };
   assert.equal(fire(target(img('blob:https://x/1'))), true);
+  // A right click on the label part of an inline image chip (no <img> under the pointer) still opens the menu.
+  const chipImg = img('blob:https://x/chip');
+  const chipTarget = { closest: sel => sel.includes('file://') ? null : sel.startsWith('[data-testid="user-input-step"]') ? {} : sel === 'img' ? null : sel.includes('agy-inline-image-chip') ? { querySelector: () => chipImg } : null };
+  assert.equal(fire(chipTarget), true);
+  assert.equal(rendered.at(-1).type.name, 'ImageContextMenu');
   const menuTree = rendered.at(-1);
   const menu = menuTree.type(menuTree.props).children[1];
   assert.equal(menu.props['data-testid'], 'agy-image-context-menu');

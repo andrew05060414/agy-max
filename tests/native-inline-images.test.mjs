@@ -695,6 +695,15 @@ test('sent message pipeline filters duplicate images, renders inline chips, and 
   assert.equal(chips.length, 2);
   assert.equal(chips[0].props['data-agy-image-number'], '1');
   assert.equal(chips[1].props['data-agy-image-number'], '2');
+  // Only the left button is swallowed; a right click must reach the document-level image context menu.
+  for (const button of [2, 1]) {
+    let prevented = false, stopped = false;
+    chips[0].props.onMouseDown({ button, preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } });
+    assert.deepEqual({ prevented, stopped }, { prevented: false, stopped: false }, `button ${button}`);
+  }
+  let leftPrevented = false, leftStopped = false;
+  chips[0].props.onMouseDown({ button: 0, preventDefault() { leftPrevented = true; }, stopPropagation() { leftStopped = true; } });
+  assert.deepEqual({ leftPrevented, leftStopped }, { leftPrevented: true, leftStopped: true });
 
   // Clicking chip 2 opens native DJ lightbox on Image 2 with prev/next gallery callbacks
   chips[1].props.onClick({ preventDefault() {}, stopPropagation() {} });
