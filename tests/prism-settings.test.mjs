@@ -270,6 +270,7 @@ test('new settings keys validate enums, booleans, integer ranges, prompt cap, an
 
     // Valid booleans
     const booleanKeys = [
+      'marketplaceTranslate',
       'codeLigatures', 'sidebarCompact', 'sidebarNavFold', 'composerRestyle',
       'smoothCaret', 'streamInk', 'convAura', 'prismRim', 'homeRipple',
       'effortSlider', 'effortMemory', 'codeBlockFold', 'railHoverOutline',
