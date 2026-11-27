@@ -1,7 +1,7 @@
 {
   "name": "agy-fast",
   "displayName": "agy-fast",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Reduce Antigravity task latency with batched search, atomic multi-hunk edits, symbol-aware slice reading, concurrent checks, and fast session snapshots.",
   "logo": "assets/logo.svg",
   "author": {
