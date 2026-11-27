@@ -1308,3 +1308,104 @@ test('loginUrl only surfaces an https sign-in link and cancelAccountLogin calls 
   assert.equal(await a.cancelAccountLogin(), true);
   assert.equal(cancels, 1);
 });
+
+test('attachConversationToComposer inserts native @ mention pill and falls back cleanly when schema lacks conversation case', async () => {
+  const makeComposerContext = ({ withConversationField }) => {
+    let stateText = 'Existing draft';
+    let mentionNodes = [];
+    const editor = {
+      _rootElement: { textContent: stateText, focus() {}, contains: () => true, dispatchEvent() {} },
+      focus() {},
+      getEditorState: () => ({
+        toJSON: () => ({
+          root: {
+            children: [{
+              type: 'paragraph',
+              children: [
+                ...(stateText ? [{ type: 'text', text: stateText }] : []),
+                ...mentionNodes
+              ]
+            }]
+          }
+        })
+      }),
+      setEditorState(next) {
+        if (next?.__plainText !== undefined) {
+          stateText = next.__plainText;
+          editor._rootElement.textContent = stateText;
+        }
+      }
+    };
+    const box = { lexicalRef: { current: editor }, getInputCardElement: () => ({ scrollIntoView() {} }) };
+    const ctxValue = {
+      inputBoxRef: { current: box },
+      getLexicalEditor: () => editor,
+      store: {
+        dispatch() {},
+        getState: () => ({
+          trajectorySummaries: {
+            summaries: {
+              'conv-1': {
+                annotations: { title: 'Debug Voice Button' },
+                trajectoryMetadata: { workspaceFolderAbsoluteUri: 'file:///d:/Andrew/Code/CMU' }
+              },
+              'conv-2': { annotations: { title: 'My [Special] Chat' } }
+            }
+          },
+          conversation: {},
+          projects: {}
+        })
+      }
+    };
+    const inputBoxEl = { '__reactFiber$x': { tag: 10, type: {}, memoizedProps: { value: ctxValue }, return: null }, querySelector: () => null, getAttribute: () => null };
+    const cardEl = { querySelector: sel => (sel.includes('agent-input-box') ? inputBoxEl : null) };
+    const fields = withConversationField
+      ? [
+          { name: 'file', localName: 'file', fieldKind: 'message', message: { $typeName: 'FileRef', fields: [] } },
+          {
+            name: 'conversation',
+            localName: 'conversation',
+            fieldKind: 'message',
+            message: {
+              $typeName: 'ConversationRef',
+              fields: [
+                { name: 'cascade_id', localName: 'cascadeId', fieldKind: 'scalar' },
+                { name: 'title', localName: 'title', fieldKind: 'scalar' },
+                { name: 'workspace_uri', localName: 'workspaceUri', fieldKind: 'scalar' }
+              ]
+            }
+          }
+        ]
+      : [{ name: 'file', localName: 'file', fieldKind: 'message', message: { $typeName: 'FileRef', fields: [] } }];
+    const ctxSchema = { $typeName: 'ContextScopeItem', oneofs: [{ name: 'scopeItem', localName: 'scopeItem', fields }], fields };
+    const gyCalls = [];
+    const context = vm.createContext({
+      document: { querySelector: sel => (sel.includes('agent-input-box') || sel.includes('Message input') ? inputBoxEl : null) },
+      __agyNativeBindings: { ctxSchema, names: { resolve: 'sjc', segment: 'Yyc', menu: 'lHc' } },
+      I: { ContextScopeItemSchema: ctxSchema, CascadeConfigSchema: {} },
+      Wb: (schema, data) => ({ $typeName: schema.$typeName, ...data }),
+      IJ: (_, json) => ({ __plainText: JSON.parse(json).root.children[0].children[0]?.text || '' }),
+      Gy: (_, item) => { gyCalls.push(item); mentionNodes = [...mentionNodes, { type: 'context-mention', item }]; },
+      tc: (_, v) => v
+    });
+    vm.runInContext(readFileSync(new URL('../lib/native-client.js', import.meta.url), 'utf8'), context);
+    return { adapter: context.__agyNativeAdapter, cardEl, gyCalls, getText: () => stateText };
+  };
+
+  const nativeEnv = makeComposerContext({ withConversationField: true });
+  const mentionRes = await nativeEnv.adapter.attachConversationToComposer({ id: 'conv-1' }, nativeEnv.cardEl);
+  assert.deepEqual(JSON.parse(JSON.stringify(mentionRes)), { ok: true, mode: 'mention', kind: 'conversation', id: 'conv-1', title: 'Debug Voice Button' });
+  assert.equal(nativeEnv.gyCalls.length, 1);
+  assert.equal(nativeEnv.gyCalls[0].scopeItem.case, 'conversation');
+  assert.equal(nativeEnv.gyCalls[0].scopeItem.value.cascadeId, 'conv-1');
+  assert.equal(nativeEnv.gyCalls[0].scopeItem.value.title, 'Debug Voice Button');
+  assert.equal(nativeEnv.gyCalls[0].scopeItem.value.workspaceUri, 'file:///d:/Andrew/Code/CMU');
+  nativeEnv.adapter.dispose();
+
+  const fallbackEnv = makeComposerContext({ withConversationField: false });
+  const linkRes = await fallbackEnv.adapter.attachConversationToComposer({ id: 'conv-2' }, fallbackEnv.cardEl);
+  assert.deepEqual(JSON.parse(JSON.stringify(linkRes)), { ok: true, mode: 'link', kind: 'conversation', id: 'conv-2', title: 'My [Special] Chat' });
+  assert.equal(fallbackEnv.gyCalls.length, 0);
+  assert.equal(fallbackEnv.getText(), 'Existing draft [My Special Chat](conversation://conv-2) ');
+  fallbackEnv.adapter.dispose();
+});
