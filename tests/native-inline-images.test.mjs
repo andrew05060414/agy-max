@@ -952,3 +952,114 @@ test('inserting a chip at the front immediately reorders selectedMedia to dialog
   assert.equal(currentMedia[0].payload.value.length, 2);
   assert.equal(currentMedia[1], img1);
 });
+
+test('copying and pasting text + image in composer upgrades plain [Image #N] without triggering PendingMentionGuardPlugin loop', async () => {
+  const effects = [];
+  let stateSlots = [];
+  let refs = [];
+  let hookIdx = 0;
+  let refIdx = 0;
+  const updateListeners = new Set();
+  const miniReact = {
+    Fragment: Symbol('Fragment'),
+    createContext: d => ({ _current: d, Provider: ({ children }) => children }),
+    useContext: c => c._current,
+    useSyncExternalStore: (_, get) => get(),
+    useMemo: fn => fn(),
+    useCallback: fn => fn,
+    useRef(v) { const i = refIdx++; if (!(i in refs)) refs[i] = { current: v }; return refs[i]; },
+    useEffect(fn) { effects.push(fn); },
+    useState(init) { const i = hookIdx++; if (!(i in stateSlots)) stateSlots[i] = typeof init === 'function' ? init() : init; return [stateSlots[i], v => { stateSlots[i] = v; }]; },
+    createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children } })
+  };
+  function render(n) {
+    if (!n || typeof n !== 'object') return n;
+    if (Array.isArray(n)) return n.map(render);
+    if (typeof n.type === 'function') return render(n.type(n.props || {}));
+    return n;
+  }
+
+  let docChildren = [];
+  let setEditorStateCalls = 0;
+  const makeState = () => ({
+    _nodeMap: new Map(docChildren.map((n, idx) => [String(idx), {
+      getType: () => n.type,
+      getData: () => n.data,
+      setData: next => { n.data = next; }
+    }])),
+    toJSON: () => ({ root: { type: 'root', children: [{ type: 'paragraph', children: docChildren.map(n => ({ ...n, data: n.data ? { ...n.data } : undefined })) }] } })
+  });
+  const notifyLexical = () => {
+    const editorState = makeState();
+    for (const fn of updateListeners) fn({ editorState });
+  };
+  const editor = {
+    getEditorState: makeState,
+    setEditorState(parsed) {
+      setEditorStateCalls++;
+      if (setEditorStateCalls > 20) throw new Error('Infinite setEditorState loop detected');
+      const next = parsed.toJSON();
+      docChildren = next.root.children[0].children;
+      // Simulate Antigravity's PendingMentionGuardPlugin (NGb): any newly "created" mention node born with resolving==='true' is downgraded to plain text!
+      let downgraded = false;
+      docChildren = docChildren.map(node => {
+        if ((node.type === 'contextScopeItemMention' || node.type === 'beautifulMention') && String(node.data?.resolving ?? '') === 'true') {
+          downgraded = true;
+          return { type: 'text', text: `[Image #${node.data.agyImgNum || '1'}]`, version: 1 };
+        }
+        return node;
+      });
+      notifyLexical();
+      if (downgraded) notifyLexical();
+    },
+    update(fn) {
+      editor._pendingEditorState = makeState();
+      fn();
+      editor._pendingEditorState = null;
+      notifyLexical();
+    },
+    registerUpdateListener(fn) { updateListeners.add(fn); return () => updateListeners.delete(fn); }
+  };
+
+  const img1 = { mimeType: 'image/png', description: 'shot.png', uri: 'file:///.user_uploaded/shot.png', payload: { case: 'inlineData', value: new Uint8Array([1, 2, 3]) } };
+  let currentMedia = [img1];
+  const box = { getMediaAttachments: () => currentMedia };
+
+  const ctx = createHarness({
+    React: miniReact,
+    B: miniReact,
+    IJ: (_, s) => ({ toJSON: () => JSON.parse(s) }),
+    __agyNativeBindings: {
+      names: { composerMediaStrip: 'symAed' },
+      commonSchemas: { ContextScopeItemSchema: {}, DynamicContextScopeItemSchema: {}, MediaSchema: {}, TextOrScopeItemSchema: {} }
+    },
+    symAed: () => null
+  });
+  ctx.__agyNativeAdapter.findComposer = () => ({ editor, box });
+  ctx.__agyNativeAdapter.setInlineImages(true);
+
+  render(miniReact.createElement(ctx.symAed, {
+    selectedMedia: currentMedia,
+    setSelectedMedia: next => { currentMedia = typeof next === 'function' ? next(currentMedia) : next; }
+  }));
+  while (effects.length) effects.shift()();
+  await new Promise(r => setTimeout(r, 10));
+
+  // Initial image chip was inserted without triggering PendingMentionGuardPlugin and now carries resolving='true'
+  assert.equal(docChildren[0].type, 'contextScopeItemMention');
+  assert.equal(docChildren[0].data.resolving, 'true');
+
+  // Simulate user copying "文字 + [图片 1]" and pasting into composer (forcePlainTextPaste inserts plain "[Image #1]")
+  const beforeCalls = setEditorStateCalls;
+  docChildren.push({ type: 'text', text: ' 复制的文字 [Image #1] 再补充', version: 1 });
+  notifyLexical();
+  await new Promise(r => setTimeout(r, 20));
+
+  // Upgraded cleanly in 1 setEditorState call with zero loop, and both chips carry resolving='true'!
+  assert.equal(setEditorStateCalls - beforeCalls, 1);
+  const chipNodes = docChildren.filter(n => n.type === 'contextScopeItemMention');
+  assert.equal(chipNodes.length, 2);
+  assert.equal(chipNodes[0].data.resolving, 'true');
+  assert.equal(chipNodes[1].data.resolving, 'true');
+  assert.equal(currentMedia.length, 1);
+});

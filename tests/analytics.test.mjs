@@ -10,9 +10,13 @@ import { createQuotaTracker } from '../lib/quota.mjs';
 import { requestEvents, usageDashboard } from '../lib/analytics.mjs';
 import { readDatabase } from '../lib/database.mjs';
 import { fields, string as protoString } from '../lib/protobuf.mjs';
-test('buffered provider responses use whole-request timing instead of a millisecond streaming tail',()=>{
- const events=requestEvents({generations:[{requestId:'same-id',stepIndices:[8],modelName:'model',inputTokens:100,cacheReadTokens:0,outputTokens:1000,thinkingTokens:800,responseTokens:200,ttftMs:9990,streamingMs:10}],times:new Map([[8,{createdMs:1000}]])},'source');
- assert.equal(events[0].tps,100);assert.equal(events[0].durationMs,10000);assert.equal(events[0].timestampMs,1000);assert.equal(events[0].id,'same-id');
+test('buffered provider responses use whole-request timing while streamed responses use pure decode timing',()=>{
+ const events=requestEvents({generations:[
+  {requestId:'same-id',stepIndices:[8],modelName:'model',inputTokens:100,cacheReadTokens:0,outputTokens:1000,thinkingTokens:800,responseTokens:200,ttftMs:9990,streamingMs:10},
+  {requestId:'streamed-id',stepIndices:[9],modelName:'Gemini 4 Neon (High)',inputTokens:226000,cacheReadTokens:0,outputTokens:456,thinkingTokens:120,responseTokens:336,ttftMs:9740,streamingMs:2520}
+ ],times:new Map([[8,{createdMs:1000}],[9,{createdMs:2000}]])},'source');
+ assert.equal(events[0].tps,100);assert.equal(events[0].e2eTps,100);assert.equal(events[0].durationMs,10000);assert.equal(events[0].timestampMs,1000);assert.equal(events[0].id,'same-id');
+ assert.equal(events[1].tps,181);assert.equal(events[1].e2eTps,37.2);assert.equal(events[1].durationMs,12260);assert.equal(events[1].effectiveGenMs,2520);
 });
 test('progress counts leaf tasks without counting headings twice',()=>{
  const tasks=parseChecklist('- [ ] Parent\n  - [x] First\n  - [/] Active\n- [ ] Later');

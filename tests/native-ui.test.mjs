@@ -235,15 +235,21 @@ test('accountSwitcher respects multiAccount master switch, toggles native settin
 test('renderRoot does not repeatedly call insertBefore when before equals existing mount', () => {
   const p = page(true);
   let insertCount = 0;
-  const link = { isConnected: true, nextSibling: null };
+  const card = { isConnected: true, nextSibling: null };
   const parent = {
     insertBefore(node) {
       insertCount++;
       node.isConnected = true;
-      link.nextSibling = node;
+      card.nextSibling = node;
     }
   };
-  link.parentElement = parent;
+  card.parentElement = parent;
+  const modelTrigger = {
+    isConnected: true,
+    parentElement: parent,
+    nextSibling: null,
+    closest: sel => sel === '.surface-composer-card' ? card : null
+  };
   let observerCb = null;
   p.context.MutationObserver = class {
     constructor(cb) { observerCb = cb; }
@@ -253,41 +259,27 @@ test('renderRoot does not repeatedly call insertBefore when before equals existi
   let scheduled = null;
   p.context.setTimeout = cb => { scheduled = cb; return 1; };
   p.context.ReactDOM = { createRoot() { return { render() {}, unmount() {} }; } };
-  p.context.__agyNativeAdapter.installPage = () => true;
-  p.context.__agyPanels = () => ({ Page: () => null, Sidebar: () => null, dispose() {} });
-  p.document.querySelector = sel => sel === 'a[href="/customizations"]' ? link : null;
+  p.document.querySelectorAll = sel => sel === '[data-testid="model-selector-trigger"]' ? [modelTrigger] : [];
   p.context.__agyInitialSettings = { enabled: true };
   vm.runInContext(source, p.context);
   assert.equal(insertCount, 1);
-  // Trigger a second mount cycle after link.nextSibling points to entry.mount
+  // Trigger a second mount cycle after card.nextSibling points to entry.mount
   observerCb?.([{ target: { closest: () => null } }]);
   scheduled?.();
   assert.equal(insertCount, 1);
   p.context.__agyPowertools.dispose();
 });
 
-test('Powertools sidebar entry repositions after /customizations once /customizations mounts later', () => {
+test('right-sidebar plugin slot mounts full panel dynamically without touching left sidebar or flickering', () => {
   const p = page(true);
-  const children = [];
-  const syncSiblings = () => {
-    for (let i = 0; i < children.length; i++) children[i].nextSibling = children[i + 1] || null;
-  };
-  let insertCount = 0;
+  const leftChildren = [];
   const navContainer = {
     isConnected: true,
-    insertBefore(node, before) {
-      insertCount++;
-      const existingIdx = children.indexOf(node);
-      if (existingIdx >= 0) children.splice(existingIdx, 1);
-      node.isConnected = true;
-      if (before && children.includes(before)) children.splice(children.indexOf(before), 0, node);
-      else children.push(node);
-      syncSiblings();
-    }
+    insertBefore(node) { leftChildren.push(node); }
   };
-  const newChat = { id: 'new-chat', isConnected: true, parentElement: navContainer, nextSibling: null };
-  children.push(newChat);
-  let custLink = null;
+  const custLink = { id: 'cust', isConnected: true, parentElement: navContainer, nextSibling: null };
+  let auxSlots = [];
+  let auxInsertCount = 0;
   let observerCb = null;
   let scheduled = null;
   p.context.MutationObserver = class {
@@ -304,28 +296,40 @@ test('Powertools sidebar entry repositions after /customizations once /customiza
     if (sel === '[data-testid="sidebar-navigation-items"]') return navContainer;
     return null;
   };
+  p.document.querySelectorAll = sel => sel === '[data-testid="sidecar-iframe-slot"]' ? auxSlots : [];
   p.context.__agyInitialSettings = { enabled: true };
   vm.runInContext(source, p.context);
-  assert.equal(children.length, 2);
-  assert.equal(children[1].dataset.agyPowertoolsRoot, 'management');
+  assert.equal(leftChildren.length, 0);
 
-  // Now native React mounts Automations and Customizations after Powertools
-  const automations = { id: 'auto', isConnected: true, parentElement: navContainer, nextSibling: null };
-  custLink = { id: 'cust', isConnected: true, parentElement: navContainer, nextSibling: null };
-  children.push(automations, custLink);
-  syncSiblings();
+  // User clicks Plugins -> Antigravity Max in right sidebar -> sidecar-iframe-slot mounts
+  const slotChildren = [];
+  const slot = {
+    isConnected: true,
+    getAttribute: name => name === 'data-sidecar-id' ? 'agy-max/inspector' : null,
+    setAttribute() {},
+    removeAttribute() {},
+    insertBefore(node) {
+      auxInsertCount++;
+      node.isConnected = true;
+      node.nextSibling = null;
+      slotChildren.push(node);
+    }
+  };
+  auxSlots = [slot];
   observerCb?.([{ target: { closest: () => null } }]);
   scheduled?.();
-  assert.deepEqual(children.map(c => c.id || c.dataset?.agyPowertoolsRoot), ['new-chat', 'auto', 'cust', 'management']);
-  const countAfterMove = insertCount;
+  assert.equal(leftChildren.length, 0);
+  assert.equal(slotChildren.length, 1);
+  assert.equal(slotChildren[0].dataset.agyPowertoolsRoot, 'aux-management');
+  const countAfterMount = auxInsertCount;
 
   // Next mount tick must be a no-op (no flicker loop)
   observerCb?.([{ target: { closest: () => null } }]);
   scheduled?.();
-  assert.equal(insertCount, countAfterMove);
+  assert.equal(auxInsertCount, countAfterMount);
 
   p.context.__agyPowertools.dispose();
-  assert.equal(children.find(c => c.dataset?.agyPowertoolsRoot === 'management')?.isConnected, false);
+  assert.equal(slotChildren[0].isConnected, false);
 });
 
 test('cold-start proxy prompt banner appears on mismatch, handles unreachable port, dismisses, and cleans up on dispose', async () => {
@@ -1650,4 +1654,65 @@ test('response toolbar Copy writes only the final answer and dispose restores cl
   assert.deepEqual(written, ['final answer', 'user copied this']);
   p.context.__agyPowertools.dispose();
   assert.equal(clipboard.writeText, nativeWrite);
+});
+
+test('mounts full Antigravity Max panel in right-sidebar plugin slot without injecting left-sidebar link', async () => {
+  const p = page(true);
+  const mountedRoots = [];
+  p.context.React = { createElement: (type, props, ...children) => ({ type, props, children }) };
+  p.context.ReactDOM = {
+    createRoot(mount) {
+      const rec = { mount, tree: null, unmounted: false };
+      mountedRoots.push(rec);
+      return { render(el) { rec.tree = el; }, unmount() { rec.unmounted = true; } };
+    }
+  };
+  let auxOpened = 0, navCalls = 0, panelEnv = null;
+  const PageComp = function FullMaxPage() {};
+  const SidebarComp = function LegacyLeftSidebar() {};
+  p.context.__agyPanels = env => { panelEnv = env; return { Page: PageComp, Sidebar: SidebarComp, dispose() {} }; };
+  p.context.__agyNativeAdapter = {
+    wrap: el => el,
+    installPage: () => true,
+    openMaxSidecarPane: () => { auxOpened++; return true; },
+    router: () => ({ navigate() { navCalls++; } })
+  };
+  const leftCustomizations = { isConnected: true, parentElement: { insertBefore() { throw new Error('Must not inject into left sidebar'); } }, nextSibling: null };
+  const slotAttrs = new Map([['data-sidecar-id', 'agy-max/inspector'], ['data-sidecar-url', 'plugin://agy-max--inspector-52150/']]);
+  const auxSlot = {
+    isConnected: true,
+    getAttribute: name => slotAttrs.get(name) ?? null,
+    setAttribute: (name, val) => slotAttrs.set(name, val),
+    removeAttribute: name => slotAttrs.delete(name),
+    insertBefore(child) { child.isConnected = true; }
+  };
+  p.document.querySelector = sel => sel.includes('/customizations') ? leftCustomizations : null;
+  p.document.querySelectorAll = sel => {
+    if (sel === '[data-testid="sidecar-iframe-slot"]') return [auxSlot];
+    if (sel === '[data-agy-max-aux-host]') return slotAttrs.has('data-agy-max-aux-host') ? [auxSlot] : [];
+    return [];
+  };
+  p.context.__agyInitialSettings = { enabled: true };
+  p.context.__agyPowertoolsHost = raw => { const req = JSON.parse(raw); queueMicrotask(() => p.context.__agyPowertoolsReceive(req.id, req.method === 'settings.get' ? { enabled: true } : {})); };
+  vm.runInContext(source, p.context);
+  await new Promise(r => setImmediate(r));
+
+  assert.equal(p.context.__agyPowertools.status.healthy, true);
+  assert.equal(slotAttrs.has('data-agy-max-aux-host'), true);
+  assert.equal(mountedRoots.length, 1);
+  assert.equal(mountedRoots[0].mount.dataset.agyPowertoolsRoot, 'aux-management');
+  assert.equal(mountedRoots[0].tree.type, PageComp);
+
+  // Programmatic openManagementTab opens the right-sidebar plugin tab instead of navigating away
+  panelEnv.openManagementTab('search');
+  assert.equal(auxOpened, 1);
+  assert.equal(navCalls, 0);
+
+  // Turning master switch off keeps aux-management mounted so user can re-enable from Settings
+  await panelEnv.change({ enabled: false });
+  assert.equal(mountedRoots[0].unmounted, false);
+
+  p.context.__agyPowertools.dispose();
+  assert.equal(mountedRoots[0].unmounted, true);
+  assert.equal(slotAttrs.has('data-agy-max-aux-host'), false);
 });
