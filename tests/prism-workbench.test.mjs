@@ -465,6 +465,7 @@ function createMockDom() {
 
   const copiedTexts = [];
   const openedUrls = [];
+  const observerCallbacks = new Set();
   let selectedText = '';
 
   const context = vm.createContext({
@@ -485,7 +486,11 @@ function createMockDom() {
         writeText: async txt => { copiedTexts.push(txt); }
       }
     },
-    MutationObserver: class { observe() {} disconnect() {} },
+    MutationObserver: class {
+      constructor(cb) { this._cb = cb; observerCallbacks.add(cb); }
+      observe() {}
+      disconnect() { observerCallbacks.delete(this._cb); }
+    },
     setTimeout,
     clearTimeout,
     queueMicrotask,
@@ -502,6 +507,9 @@ function createMockDom() {
     copiedTexts,
     openedUrls,
     setSelectedText(v) { selectedText = v; },
+    notifyMutations(records) {
+      for (const cb of [...observerCallbacks]) cb(records);
+    },
     createWorkbench: env => context.__agyCreateWorkbench(env)
   };
 }
@@ -1899,4 +1907,84 @@ test('Chat Mode preserves folder input across DOM mutations/syncs, avoids duplic
   wb.dispose();
   // Because row2 was pruned before dispose(), dispose() did not touch the detached element
   assert.equal(row2.getAttribute('draggable'), 'true');
+});
+
+test('Effort Slider transforms newly mounted model-selector-panel synchronously in MutationObserver before 24ms debounce and blocks editor.focus() steal during slider adjustment', () => {
+  const dom = createMockDom();
+  const { document } = dom;
+
+  const modelOptions = [
+    { label: 'Gemini 4 Carbon (Low)', value: 1 },
+    { label: 'Gemini 4 Carbon (Medium)', value: 2 },
+    { label: 'Gemini 4 Carbon (High)', value: 3 }
+  ];
+  let currentSelected = modelOptions[1];
+
+  // Simulate two contenteditable editors (e.g. subagent + main composer) where native setSelectedModel calls M()?.focus() on the 2nd editor!
+  const editor1 = document.createElement('div');
+  editor1.setAttribute('contenteditable', 'true');
+  document.body.appendChild(editor1);
+  const editor2 = document.createElement('div');
+  editor2.setAttribute('contenteditable', 'true');
+  document.body.appendChild(editor2);
+
+  let menuClosedByBlur = false;
+  const fiberNode = {
+    memoizedProps: {
+      modelOptions,
+      get selectedModel() { return currentSelected; },
+      setIsOpen(open) { if (!open) menuClosedByBlur = true; },
+      setSelectedModel(next) {
+        currentSelected = next;
+        // Native Pjd calls M()?.focus() synchronously on selection!
+        editor2.focus();
+        if (document.activeElement === editor2) menuClosedByBlur = true;
+      }
+    },
+    return: null
+  };
+
+  const trigger = document.createElement('button');
+  trigger.setAttribute('data-testid', 'model-selector-trigger');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.textContent = 'Gemini 4 Carbon Medium';
+  trigger['__reactFiber$test'] = fiberNode;
+  document.body.appendChild(trigger);
+
+  const wb = dom.createWorkbench({ options: () => ({ enabled: true, language: 'zh-CN', effortSlider: true, effortMemory: true }) });
+  assert.equal(document.documentElement.getAttribute('data-agy-codex-selector'), '1');
+
+  // Mount a brand-new native model-selector-panel and fire MutationObserver (WITHOUT waiting 24ms setTimeout!)
+  trigger.setAttribute('aria-expanded', 'true');
+  const popupWrap = document.createElement('div');
+  popupWrap.setAttribute('role', 'menu');
+  const panel = document.createElement('div');
+  panel.setAttribute('data-testid', 'model-selector-panel');
+  panel['__reactFiber$test'] = fiberNode;
+  const listWrap = document.createElement('div');
+  panel.appendChild(listWrap);
+  popupWrap.appendChild(panel);
+  document.body.appendChild(popupWrap);
+
+  dom.notifyMutations([{ type: 'childList', target: document.body, addedNodes: [popupWrap], removedNodes: [] }]);
+
+  // Immediately (0ms, pre-paint) transformed into Stage 1 ('effort') without flashing Stage 2 ('models')!
+  const slider = panel.querySelector('[data-testid="agy-effort-slider"]');
+  assert.ok(slider, 'Slider must mount synchronously inside MutationObserver microtask');
+  assert.equal(panel.getAttribute('data-agy-codex-stage'), 'effort');
+  assert.equal(document.documentElement.getAttribute('data-agy-effort-slider-ready'), '1');
+  assert.equal(trigger.getAttribute('data-agy-codex-open'), 'effort');
+
+  // Focus the slider track and click High tick -> editor2.focus() MUST be suppressed so menu never blurs/remounts!
+  const track = slider.querySelector('[role="slider"]');
+  track.focus();
+  assert.equal(document.activeElement, track);
+
+  slider.querySelector('[data-testid="agy-effort-tick-high"]').click();
+  assert.equal(currentSelected.label, 'Gemini 4 Carbon (High)');
+  assert.equal(menuClosedByBlur, false, 'editor2.focus() must be blocked during effort slider adjustment');
+  assert.equal(document.activeElement, track, 'Focus must stay on slider track');
+  assert.equal(slider.querySelector('.agy-effort-val')?.textContent, '高');
+
+  wb.dispose();
 });

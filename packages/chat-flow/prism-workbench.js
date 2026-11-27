@@ -344,6 +344,7 @@
         html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"][data-agy-codex-open="effort"] > *{display:none!important}
         html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"][data-agy-codex-open="effort"]::after{content:attr(data-agy-effort-prompt);font-size:13px;font-weight:400;color:color-mix(in srgb,var(--foreground) 54%,transparent);white-space:nowrap}
         html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"][data-agy-codex-open="models"]{background:color-mix(in srgb,var(--foreground) 6.5%,transparent)!important}
+        html[data-agy-codex-selector="1"]:not(:has([data-testid="model-selector-trigger"][data-agy-codex-open="models"])) [data-testid="model-selector-panel"]:not([data-agy-codex-stage]){opacity:0!important;pointer-events:none!important}
         @media (prefers-reduced-motion:reduce){.agy-effort-fill,.agy-effort-knob,.agy-effort-val[data-pop="1"]{transition:none!important;animation:none!important}}
 
         /* Thought Translator */
@@ -863,18 +864,36 @@
           return true;
         }
         if (typeof ctx.setSelectedModel === 'function') {
-          const editor = document.querySelector?.('[contenteditable="true"]');
+          const editors = keepOpen ? [...(document.querySelectorAll?.('[contenteditable="true"]') || [])] : [];
           const prevActive = document.activeElement;
-          const stopFocus = ev => { ev?.stopPropagation?.(); try { editor?.blur?.(); } catch {} };
-          editor?.addEventListener?.('focus', stopFocus, true);
+          const savedFocus = editors.map(ed => ({ ed, hasOwn: Object.prototype.hasOwnProperty.call(ed, 'focus'), fn: ed.focus }));
+          const stopFocus = ev => { ev?.stopImmediatePropagation?.(); ev?.stopPropagation?.(); };
+          if (keepOpen) {
+            for (const item of savedFocus) {
+              item.ed.addEventListener?.('focus', stopFocus, true);
+              item.ed.addEventListener?.('focusin', stopFocus, true);
+              try { item.ed.focus = () => {}; } catch {}
+            }
+          }
           try {
             ctx.setSelectedModel(targetOption);
-            if (editor && document.activeElement === editor) {
-              try { editor.blur?.(); } catch {}
-              if (prevActive && prevActive !== editor) { try { prevActive.focus?.(); } catch {} }
+            if (keepOpen) {
+              for (const { ed } of savedFocus) {
+                if (document.activeElement === ed) {
+                  try { ed.blur?.(); } catch {}
+                  if (prevActive && prevActive !== ed) { try { prevActive.focus?.(); } catch {} }
+                }
+              }
             }
           } finally {
-            editor?.removeEventListener?.('focus', stopFocus, true);
+            for (const item of savedFocus) {
+              item.ed.removeEventListener?.('focus', stopFocus, true);
+              item.ed.removeEventListener?.('focusin', stopFocus, true);
+              try {
+                if (item.hasOwn) item.ed.focus = item.fn;
+                else delete item.ed.focus;
+              } catch {}
+            }
           }
           if (keepOpen) { try { ctx.setIsOpen?.(true); } catch {} }
           return true;
@@ -1132,6 +1151,9 @@
         pop: userInitiated
       });
       if (updated.mode === 'fiber') syncFiberPanelRows(panel, updated);
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(() => { if (!disposed) syncEffortSlider(); });
+      }
     }
 
     function resolvePanelProfile(panel) {
@@ -3961,12 +3983,38 @@
       }, ac ? { capture: true, signal: ac.signal } : true);
     }
 
+    function isModelSelectorMutation(records) {
+      const sel = '[data-testid="model-selector-panel"],[data-testid="model-selector-list"],[data-testid="model-selector-trigger"],[role="menu"],[role="dialog"],[role="listbox"]';
+      const touchesSelector = node => Boolean(
+        node && node.nodeType === 1 && (
+          node.matches?.(sel) || node.querySelector?.('[data-testid="model-selector-panel"],[data-testid="model-selector-list"],[data-testid="model-selector-effort-group"],[data-testid="model-selector-effort-option"]')
+        )
+      );
+      for (const r of records) {
+        if (r.type === 'attributes' && r.target?.matches?.('[data-testid="model-selector-trigger"],[role="menu"],[role="dialog"]')) {
+          return true;
+        }
+        for (const n of r.addedNodes || []) {
+          if (touchesSelector(n)) return true;
+        }
+        for (const n of r.removedNodes || []) {
+          if (touchesSelector(n)) return true;
+        }
+      }
+      return false;
+    }
+
     let observer = null;
     if (typeof MutationObserver === 'function' && typeof document !== 'undefined' && document.body) {
       observer = new MutationObserver(records => {
         if (disposed) return;
         const allOurs = records.every(r => r.target?.closest?.('[data-agy-powertools-root],[data-agy-thought-box]'));
         if (allOurs) return;
+        const opts = getOpts();
+        if (opts.enabled && (opts.effortSlider || opts.effortMemory) && isModelSelectorMutation(records)) {
+          injectStyles();
+          syncEffortSlider();
+        }
         scheduleSync();
       });
       try {
