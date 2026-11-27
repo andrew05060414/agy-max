@@ -86,6 +86,11 @@ test('allowlist: unclassified tools without paths ask instead of silently allowi
     assert.equal(verdict.decision, 'ask');
     assert.match(verdict.reason, /totally_new_tool/);
     assert.deepEqual(f.pre('search_web', { query: 'pytorch' }), { decision: 'allow' });
+    assert.deepEqual(f.pre('update_focus', { focus: 'Checking remote training logs' }), { decision: 'allow' });
+    assert.deepEqual(f.pre('update_steps', { steps: [{ title: 'Check GPU', status: 'in_progress' }] }), { decision: 'allow' });
+    assert.deepEqual(f.pre('ask_question', { questions: [] }), { decision: 'allow' });
+    assert.deepEqual(f.pre('search_marketplace', { queries: ['ssh'] }), { decision: 'allow' });
+    assert.deepEqual(f.pre('list_plugin_accounts', {}), { decision: 'allow' });
     assert.deepEqual(f.pre('browser_navigate', { Url: 'https://example.com' }), { decision: 'allow' });
     assert.deepEqual(f.pre('mcp_agy-ssh-projects_ssh_list_dir', { projectId: f.proj.id, path: '/root' }), { decision: 'allow' });
     // outside SSH projects nothing changes

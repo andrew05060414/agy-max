@@ -5,3 +5,5 @@ node_modules/
 /dist/
 VERIFICATION.md
 scripts/verify-*.mjs
+/upstream-research-*.md
+/docs/upstream-research-*.md
