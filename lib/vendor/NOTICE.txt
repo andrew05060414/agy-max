@@ -9,5 +9,6 @@
    See lib/vendor/agy-fast/LICENSE for the full license text.
 
 3. Upstream foundation & specification acknowledgments:
+   - macOS Keychain JXA writer (lib/mac-keychain.mjs) copied verbatim from WhiteBr1ck/agy-powertools v2.16.10 lib/credential-vault.mjs (issue #75 fix, MIT License).
    - Core debugging attachment & telemetry foundation derived from WhiteBr1ck/agy-powertools (https://github.com/WhiteBr1ck/agy-powertools, MIT License).
    - Optical themes & modern workbench design inspired by RMvdesi/obsidian-prism (https://github.com/RMvdesi/obsidian-prism; clean-room MIT implementation, see docs/PRISM_COMPATIBILITY.md).
