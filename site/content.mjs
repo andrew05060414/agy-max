@@ -195,7 +195,7 @@ export const SITE_CONTENT = {
         {
           id: 'prism',
           title: 'Prism 光学主题与水波试管',
-          desc: '内置 Crystal / Obsidian / Alabaster / Warm 四套光学配色与场景预设，支持水波试管上下文指示器、推理档位滑杆记忆、长代码折叠、行内 Diff 与本地壁纸。'
+          desc: '内置 Crystal / Obsidian / Alabaster / Warm 四套光学配色与场景预设，支持水波试管上下文指示器、推理档位滑杆记忆、长代码折叠与行内 Diff。'
         },
         {
           id: 'telemetry',
@@ -549,7 +549,7 @@ export const SITE_CONTENT = {
         {
           id: 'prism',
           title: 'Prism optics & liquid vial gauge',
-          desc: 'Four optical palettes (Crystal, Obsidian, Alabaster, Warm), scene presets, liquid vial context indicator, per-model reasoning slider memory, code folding, inline step diffs, and local wallpapers.'
+          desc: 'Four optical palettes (Crystal, Obsidian, Alabaster, Warm), scene presets, liquid vial context indicator, per-model reasoning slider memory, code folding, and inline step diffs.'
         },
         {
           id: 'telemetry',

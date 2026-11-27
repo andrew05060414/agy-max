@@ -42,7 +42,7 @@
 | 来源仓库 | 关系与借鉴内容 | 许可与说明 |
 | --- | --- | --- |
 | **[WhiteBr1ck/agy-powertools](https://github.com/WhiteBr1ck/agy-powertools)** | **核心底座衍生**：本机 CDP 零侵入调试挂载、本地 SQLite/JSONL 会话遥测与 53 周看板、多语言汉化底座、会话分支与原位编辑、系统凭据库多账号切换、免 TUN 独立代理及 WSL2 桥接 | MIT License（安装 `agy-max` 时自动停用旧版并无损继承原有设置与账号） |
-| **[RMvdesi/obsidian-prism](https://github.com/RMvdesi/obsidian-prism)** | **交互与光学规格借鉴**：深浅光学配色体系、场景一键预设、水波试管上下文指示器、推理档位滑杆、长代码折叠、行内步骤 Diff、会话文件夹与本地壁纸/桌宠理念 | 基于公开功能规格独立净室重实现（详见 [docs/PRISM_COMPATIBILITY.md](docs/PRISM_COMPATIBILITY.md)） |
+| **[RMvdesi/obsidian-prism](https://github.com/RMvdesi/obsidian-prism)** | **交互与光学规格借鉴**：深浅光学配色体系、场景一键预设、水波试管上下文指示器、推理档位滑杆、长代码折叠、行内步骤 Diff、会话文件夹与桌宠理念 | 基于公开功能规格独立净室重实现（详见 [docs/PRISM_COMPATIBILITY.md](docs/PRISM_COMPATIBILITY.md)） |
 | **[INK-Q/agy-fast](https://github.com/INK-Q/agy-fast)** | **默认内置加速套件**：内置打包 `batch_search`、`apply_edits`、`quick_outline`、`read_slices`、`run_checks` 与 `SessionStart` 启动快照，大幅减少 Agent 工具往返轮次与 Token 消耗 | MIT License（默认自动部署启用，可在 **Antigravity Max -> 设置 -> 会话增强** 随时一键关闭） |
 
 在此基础上，`Antigravity Max` 进一步自研整合了**输入框下置 Git 与遥测状态栏、本地 + SSH 历史全文搜索（`⌘+⌥+F`）、运行中会话铃铛与侧栏「优先事项」、`/goal` 常驻目标栏与实时编辑抽屉、完整工具链 Markdown 复制、外部编辑器行列直达及 SSH 连接命令粘贴解析**等全套类 Codex 重度工程流特性。也感谢 [LINUX DO](https://linux.do) 社区在日常工具折腾与开源交流中提供的启发。
@@ -117,7 +117,7 @@
 - **全面适配最新版 Antigravity（`2.35.1+`）**：深度适配最新客户端的侧栏项目置顶、路由加载时序与右侧原生辅助侧栏（`sidePanelV2`）架构，消除新版客户端冷启动白屏与组件挂载异常。
 - **默认内置 `agy-fast` 极速引擎（可随时关闭）**：无需单独安装，装好 `Antigravity Max` 即自动部署并启用内置 `agy-fast`（提供并发批量搜索、符号大纲、多文件原子修改与启动快照）；不想使用时可在「设置 -> 会话增强 -> 内置 agy-fast 加速引擎」一键关闭，保留用户自定义 `*.local.md` 规则不丢失。
 - **类 Codex 旗舰工作流套件**：毫秒级本地与 SSH 历史会话全文搜索（`⌘+⌥+F` / `Ctrl+Alt+F` 直达匹配轮次并一键复制代码或命令）、顶部搜索会话按钮右侧运行中会话铃铛与带时间窗持久化的侧栏「优先事项」视图、已归档会话一键批量管理、输入框底栏无锁 Git 状态与只读 Unified Diff 胶囊（`+X / -Y`）、`/goal` 目标常驻栏与实时编辑抽屉、务实编码模式与 `/code-review` 只读审查技能。
-- **Prism 光学美化与现代工作台**：内置四套深浅光学配色、场景一键预设（`Native` / `Ultra` / `Focus` / `Eco`）、水波试管上下文指示器、推理档位滑杆与按模型记忆、长代码块折叠、行内步骤 Git Diff、侧栏悬停大纲、会话文件夹整理、像素桌宠与本地壁纸，并支持脱敏配置一键导出备份与还原（详见 [docs/PRISM_COMPATIBILITY.md](docs/PRISM_COMPATIBILITY.md)）。
+- **Prism 光学美化与现代工作台**：内置四套深浅光学配色、场景一键预设（`Native` / `Ultra` / `Focus` / `Eco`）、水波试管上下文指示器、推理档位滑杆与按模型记忆、长代码块折叠、行内步骤 Git Diff、侧栏悬停大纲、会话文件夹整理、像素桌宠，并支持脱敏配置一键导出备份与还原（详见 [docs/PRISM_COMPATIBILITY.md](docs/PRISM_COMPATIBILITY.md)）。
 - **上下文、速度与本地用量看板**：输入框下方实时显示上下文窗口占用（缓存复用、压缩次数、Orchestrator 分模型进度）与生成速度（`tok/s`、首字延迟、模型/工具耗时和参考费用）；左侧栏 **Antigravity Max** 看板提供 53 周热力图、请求记录、短间隔掉缓存标红、报错复制与配额估算。
 - **会话分支、原位编辑与完整 Markdown 导出**：从任意历史回答或会话菜单完整分支新会话（支持含子智能体会话）；在原位置编辑已发消息重发；支持整段或截至指定轮次复制完整会话 Markdown（含工具参数、结果与长文本补全，兼容 SSH）。
 - **多语言深度汉化**：覆盖侧栏、常用菜单、权限弹窗、模型说明、设置页与 Swarm 面板，不改动聊天正文与代码块。

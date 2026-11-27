@@ -6,7 +6,6 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
-import { File } from 'node:buffer';
 import { createPrismService } from '../lib/prism-service.mjs';
 import { createSettingsStore } from '../lib/settings.mjs';
 import { nativeSource } from '../lib/native-host.mjs';
@@ -21,7 +20,7 @@ test('Powertools includes Prism script factories in one compilable renderer payl
 
 test('renderer integration never enables unconnected services and preserves drafts', () => {
   const calls = [];
-  let options = { enabled: true, contextStyle: 'vial', wallpaperEnabled: true, omniViewer: true, thoughtTranslate: 'ai', translateSessionTitles: true };
+  let options = { enabled: true, contextStyle: 'vial', omniViewer: true, thoughtTranslate: 'ai', translateSessionTitles: true };
   let draft = 'unsent';
   const composer = {};
   const context = vm.createContext({
@@ -39,7 +38,6 @@ test('renderer integration never enables unconnected services and preserves draf
   integration.syncSettings();
   assert.equal(calls.length, 2);
   assert.equal(calls[0][1].contextStyle, 'ring'); // React owns the trigger; avoid a second injected icon.
-  assert.equal(calls[0][1].wallpaperEnabled, false);
   assert.equal(calls[1][1].thoughtTranslate, 'off');
   assert.equal(calls[1][1].omniViewer, false);
   integration.syncExecution({ conversationId: 'c1', status: 2 });
@@ -118,45 +116,6 @@ test('vialProps aggregates category breakdowns by both database.mjs row.label an
   integration.dispose();
 });
 
-test('local wallpaper only accepts chosen media and releases previous object URLs', () => {
-  const images = [];
-  const revoked = [];
-  const context = vm.createContext({
-    File,
-    location: { pathname: '/c/c1' },
-    URL: { createObjectURL: file => `blob:fixture/${file.name}`, revokeObjectURL: url => revoked.push(url) },
-    __agyCreateOptics: () => ({ sync() {}, dispose() {}, setWallpaperStatus: value => images.push(value) })
-  });
-  vm.runInContext(readFileSync(new URL('../lib/prism-integration.js', import.meta.url), 'utf8'), context);
-  const integration = context.__agyCreatePrismIntegration({ options: () => ({ enabled: true, wallpaperEnabled: true }), uiText: (zh, en) => en });
-  integration.syncSettings();
-  assert.throws(() => integration.selectWallpaper('/absolute/path.png'), /Choose/);
-  assert.throws(() => integration.selectWallpaper(new File(['<svg/>'], 'test.svg', { type: 'image/svg+xml' })), /Choose/);
-  integration.selectWallpaper(new File(['png-fixture'], 'first.png', { type: 'image/png' }));
-  assert.equal(integration.wallpaperName(), 'first.png');
-  integration.selectWallpaper(new File(['mp4-fixture'], 'second.mp4', { type: 'video/mp4' }));
-  assert.equal(images.at(-1).kind, 'video');
-  assert.deepEqual(revoked, ['blob:fixture/first.png']);
-  integration.selectWallpaper(null);
-  assert.equal(images.at(-1), null);
-  assert.deepEqual(revoked, ['blob:fixture/first.png', 'blob:fixture/second.mp4']);
-  integration.dispose();
-
-  // First use: the file is chosen before anything else has created the optics instance.
-  const firstUse = [];
-  const fresh = vm.createContext({
-    File,
-    location: { pathname: '/powertools' },
-    URL: { createObjectURL: file => `blob:fixture/${file.name}`, revokeObjectURL() {} },
-    __agyCreateOptics: () => ({ sync() {}, dispose() {}, setWallpaperStatus: value => firstUse.push(value) })
-  });
-  vm.runInContext(readFileSync(new URL('../lib/prism-integration.js', import.meta.url), 'utf8'), fresh);
-  const lazy = fresh.__agyCreatePrismIntegration({ options: () => ({ enabled: true, wallpaperEnabled: false }), uiText: (zh, en) => en });
-  lazy.selectWallpaper(new File(['png-fixture'], 'first.png', { type: 'image/png' }));
-  assert.deepEqual(firstUse.map(v => v?.fileName), ['first.png'], 'the chosen file must reach optics even when it did not exist yet');
-  lazy.dispose();
-});
-
 test('Prism RPC scopes the diff and keeps unfinished or consent-sensitive capabilities out of the renderer', async () => {
   const temp = (realpathSync.native || realpathSync)(mkdtempSync(join(tmpdir(), 'agy-prism-integration-')));
   const root = join(temp, 'project');
@@ -174,7 +133,7 @@ test('Prism RPC scopes the diff and keeps unfinished or consent-sensitive capabi
     const settings = createSettingsStore(dataDir);
     const svc = createPrismService({ settings, dataDir, workspaceOf: id => id === 'c1' ? pathToFileURL(root).href : '' });
     const req = (method, payload, context) => svc.request({ method, ...payload }, context);
-    for (const method of ['omni.open', 'archive.run', 'wallpaper.setPath', 'thought.translate']) assert.equal(svc.handles(method), false);
+    for (const method of ['omni.open', 'archive.run', 'thought.translate']) assert.equal(svc.handles(method), false);
     await assert.rejects(req('chatFolders.get'), /未开启/);
     settings.set({ chatModeBeta: true, multiAccount: true });
     await req('chatFolders.save', { folders: [{ id: 'daily', name: 'Daily' }], assignments: { c1: 'daily' } });

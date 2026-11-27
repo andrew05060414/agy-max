@@ -495,61 +495,6 @@ test('resolveSafeDiffPath handles percent-encoded URIs, deleted nested files, an
   }
 });
 
-test('wallpaperSet, wallpaperStatus, wallpaperClear validate extensions, serve over loopback, and persist', async () => {
-  const dir = makeTempDir();
-  const dataDir = join(dir, 'data');
-  const fakeHome = join(dir, 'home');
-  const pngPath = join(dir, 'bg.png');
-  const badPath = join(dir, 'not-wallpaper.svg');
-  writeFileSync(pngPath, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-  writeFileSync(badPath, '<svg></svg>');
-
-  const gw1 = createOmniGateway(dataDir, { home: fakeHome });
-  let gw2;
-  try {
-    const empty = await gw1.wallpaperStatus();
-    assert.deepEqual(empty, { ok: true, hasMedia: false, kind: '', fileName: '', mediaUrl: '' });
-
-    await assert.rejects(() => gw1.wallpaperSet({ filePath: badPath }), /壁纸仅支持/);
-
-    const setRes = await gw1.wallpaperSet({ filePath: pngPath });
-    assert.equal(setRes.ok, true);
-    assert.equal(setRes.hasMedia, true);
-    assert.equal(setRes.kind, 'image');
-    assert.equal(setRes.fileName, 'bg.png');
-    assert.match(setRes.mediaUrl, /^http:\/\/127\.0\.0\.1:\d+\/stream\//);
-
-    const fetched = await rawHttpRequest(setRes.mediaUrl);
-    assert.equal(fetched.status, 200);
-    assert.equal(fetched.headers['content-type'], 'image/png');
-    assert.equal(fetched.body.length, 8);
-
-    // Video wallpaper supports Range streaming
-    const vidPath = join(dir, 'loop.mp4');
-    writeFileSync(vidPath, Buffer.from('MP4VIDEOHEADER0123456789'));
-    const vidRes = await gw1.wallpaperSet({ filePath: vidPath });
-    assert.equal(vidRes.kind, 'video');
-    const vidRange = await rawHttpRequest(vidRes.mediaUrl, { headers: { Range: 'bytes=0-7' } });
-    assert.equal(vidRange.status, 206);
-    assert.equal(vidRange.body.toString('utf8'), 'MP4VIDEO');
-
-    // Reload from persisted wallpaper.json in a second instance
-    gw2 = createOmniGateway(dataDir, { home: fakeHome });
-    const reloaded = await gw2.wallpaperStatus();
-    assert.equal(reloaded.hasMedia, true);
-    assert.equal(reloaded.kind, 'video');
-    assert.equal(reloaded.fileName, 'loop.mp4');
-
-    const cleared = gw2.wallpaperClear();
-    assert.deepEqual(cleared, { ok: true, hasMedia: false, kind: '', fileName: '', mediaUrl: '' });
-    assert.equal((await gw2.wallpaperStatus()).hasMedia, false);
-  } finally {
-    await gw1.close();
-    if (gw2) await gw2.close();
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
 test('archiveScan, archiveRun, and archiveRestore move stale subagent conversations and restore losslessly', async () => {
   const dir = makeTempDir();
   const dataDir = join(dir, 'data');

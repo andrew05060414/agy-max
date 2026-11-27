@@ -923,7 +923,7 @@ test('interactive pixel companions: pack roster, 5-stack tower, rainbow aurora e
   optics.dispose();
 });
 
-test('motion choreography: streamInk CSS.highlights, convAura, smoothCaret, scrollBottom, prismRim, homeRipple, wallpaper Browser-Hole deference & complete dispose()', async () => {
+test('motion choreography: streamInk CSS.highlights, convAura, smoothCaret, scrollBottom, prismRim, homeRipple & complete dispose()', async () => {
   const m = createMockEnv({ pathname: '/' });
 
   // Home greeting + composer + conversation view
@@ -969,49 +969,9 @@ test('motion choreography: streamInk CSS.highlights, convAura, smoothCaret, scro
       streamInk: true,
       convAura: true,
       prismRim: true,
-      homeRipple: true,
-      wallpaperEnabled: true,
-      wallpaperOpacity: 30,
-      wallpaperBlur: 12,
-      wallpaperDim: 40
-    }),
-    request: async method => {
-      if (method === 'wallpaper.status') {
-        return { ok: true, hasMedia: true, kind: 'video', fileName: 'bg.mp4', mediaUrl: 'http://127.0.0.1:9999/bg.mp4' };
-      }
-      return { ok: true };
-    }
+      homeRipple: true
+    })
   });
-
-  // Allow cross-realm wallpaper async fetch to resolve
-  await new Promise(r => setImmediate(r));
-
-  // Wallpaper mounted & Browser-Hole deference
-  const wpLayer = m.document.querySelector('[data-testid="agy-wallpaper-layer"]');
-  const wpVideo = wpLayer?.querySelector('video');
-  assert.ok(wpLayer);
-  assert.ok(wpVideo);
-  assert.equal(wpVideo.style.props.get('opacity'), '0.3');
-  assert.equal(wpVideo.style.props.get('filter'), 'blur(12px)');
-  // Antigravity 2.34+ shell layers become see-through only while a wallpaper is mounted.
-  assert.equal(m.document.documentElement.getAttribute('data-agy-wallpaper'), '1');
-  const wpCss = m.document.querySelector('[data-agy-optics-style]')?.textContent || '';
-  assert.match(wpCss, /html\[data-agy-wallpaper\] \.agy-inset-shell\{background:transparent!important\}/);
-  assert.match(wpCss, /\[data-main-content-body\][^{]*\{background:color-mix\(in srgb,var\(--background\) 72%,transparent\)!important\}/);
-
-  m.document.body.setAttribute('data-has-browser-hole', 'true');
-  assert.equal(wpLayer.getAttribute('data-hidden-browser-hole'), 'true');
-  assert.equal(wpVideo.paused, true);
-  m.document.body.removeAttribute('data-has-browser-hole');
-  assert.equal(wpVideo.paused, false);
-
-  // Hidden/blur pauses video (0fps)
-  m.document.hidden = true;
-  m.document.dispatchEvent({ type: 'visibilitychange' });
-  assert.equal(wpVideo.paused, true);
-  m.document.hidden = false;
-  m.document.dispatchEvent({ type: 'visibilitychange' });
-  assert.equal(wpVideo.paused, false);
 
   // Home ripple wave settles to 0fps in ~1.2s and unmounts on /c/*
   const rippleCanvas = m.document.querySelector('[data-testid="agy-home-ripple-canvas"]');
@@ -1136,7 +1096,7 @@ test('prefers-reduced-motion, targetFps cap, crab/cat mascot modes, and petting 
   assert.equal(card2.style.getPropertyValue('position'), '');
 });
 
-test('standalone mountPopoverVial, hidden peek deference, image wallpaper, and targetFps throttling', async () => {
+test('standalone mountPopoverVial, hidden peek deference, and targetFps throttling', () => {
   const m = createMockEnv();
   m.context.__agyToZhTw = toZhTw;
 
@@ -1183,16 +1143,11 @@ test('standalone mountPopoverVial, hidden peek deference, image wallpaper, and t
       motionLevel: 'standard',
       targetFps: 60,
       scrollBottomMotion: 'smooth',
-      mascotMode: 'crab',
-      wallpaperEnabled: true
-    }),
-    request: async () => ({ ok: true, hasMedia: true, kind: 'image', fileName: 'wall.png', mediaUrl: 'http://127.0.0.1:9999/wall.png' })
+      mascotMode: 'crab'
+    })
   });
-  await new Promise(r => setImmediate(r));
 
-  assert.ok(m.document.querySelector('[data-testid="agy-wallpaper-layer"] img'));
   assert.equal(card.querySelector('[data-testid="agy-mascot-stage"]').getAttribute('data-peek'), 'false');
-  assert.equal(m.document.documentElement.getAttribute('data-agy-wallpaper'), '1');
 
   // Scroll glide capped at 60fps: 1st step runs, 4ms later is skipped, 16ms later advances
   scrollBtn.dispatchEvent({ type: 'click', target: scrollBtn });
@@ -1204,43 +1159,6 @@ test('standalone mountPopoverVial, hidden peek deference, image wallpaper, and t
   m.stepFrame(16);
   assert.ok(vp.scrollTop > afterFirst);
 
-  optics.sync({ enabled: true, wallpaperEnabled: false });
-  assert.equal(m.document.documentElement.getAttribute('data-agy-wallpaper'), null);
-  optics.dispose();
-});
-
-test('a wallpaper picked while the setting is off appears once the setting turns on, and is forgotten only when cleared', async () => {
-  const m = createMockEnv({ reducedMotion: true });
-  let opts = { enabled: true, motionLevel: 'off', wallpaperEnabled: false };
-  const optics = m.context.__agyCreateOptics({ options: () => opts });
-  const layer = () => m.document.querySelector('[data-testid="agy-wallpaper-layer"] img');
-  const media = { hasMedia: true, kind: 'image', fileName: 'wall.png', mediaUrl: 'blob:wall-1' };
-  assert.equal(typeof optics.setWallpaperStatus, 'function');
-
-  // First use: the file is chosen before the setting is switched on.
-  optics.setWallpaperStatus(media);
-  assert.equal(layer(), null, 'not shown while the setting is off');
-  opts = { ...opts, wallpaperEnabled: true };
-  optics.sync(opts);
-  assert.equal(layer()?.getAttribute('src'), 'blob:wall-1');
-  assert.equal(m.document.documentElement.getAttribute('data-agy-wallpaper'), '1');
-
-  // Toggling the setting off and on again keeps the same picture.
-  opts = { ...opts, wallpaperEnabled: false };
-  optics.sync(opts);
-  assert.equal(layer(), null);
-  assert.equal(m.document.documentElement.getAttribute('data-agy-wallpaper'), null);
-  opts = { ...opts, wallpaperEnabled: true };
-  optics.sync(opts);
-  assert.equal(layer()?.getAttribute('src'), 'blob:wall-1');
-
-  // Clearing really forgets it.
-  opts = { ...opts, wallpaperEnabled: false };
-  optics.sync(opts);
-  optics.setWallpaperStatus(null);
-  opts = { ...opts, wallpaperEnabled: true };
-  optics.sync(opts);
-  assert.equal(layer(), null);
   optics.dispose();
 });
 
@@ -1280,7 +1198,7 @@ test('MutationObserver isolates subtree:false attributes on body/documentElement
   const bodyAttrCall = m.observeCalls.find(c => c.target === m.document.body && c.options?.attributes === true);
   assert.ok(bodyAttrCall, 'Expected direct attribute observer on body');
   assert.equal(bodyAttrCall.options.subtree, false);
-  assert.deepEqual(Array.from(bodyAttrCall.options.attributeFilter), ['data-has-browser-hole', 'class']);
+  assert.deepEqual(Array.from(bodyAttrCall.options.attributeFilter), ['class']);
 
   const htmlAttrCall = m.observeCalls.find(c => c.target === m.document.documentElement && c.options?.attributes === true);
   assert.ok(htmlAttrCall, 'Expected direct attribute observer on documentElement');

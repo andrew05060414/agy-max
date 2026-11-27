@@ -230,7 +230,7 @@ function createHarness({ initialOptions = {}, requestHandler = async () => ({}),
   };
 }
 
-test('new settings keys validate enums, booleans, integer ranges, prompt cap, and reject invalid inputs', () => {
+test('new settings keys validate enums, booleans, prompt cap, and reject invalid inputs', () => {
   const dir = mkdtempSync(join(tmpdir(), 'agy-prism-settings-'));
   try {
     const store = createSettingsStore(dir);
@@ -275,20 +275,12 @@ test('new settings keys validate enums, booleans, integer ranges, prompt cap, an
       'smoothCaret', 'streamInk', 'convAura', 'prismRim', 'homeRipple',
       'effortSlider', 'effortMemory', 'codeBlockFold', 'railHoverOutline',
       'inlineStepDiff', 'omniViewer', 'quickContextMenu',
-      'translateSessionTitles', 'homeStudio', 'chatModeBeta', 'wallpaperEnabled'
+      'translateSessionTitles', 'homeStudio', 'chatModeBeta'
     ];
     for (const key of booleanKeys) {
       assert.equal(store.set({ [key]: true })[key], true);
       assert.equal(store.set({ [key]: false })[key], false);
     }
-
-    // Integer ranges
-    assert.equal(store.set({ wallpaperOpacity: 0 }).wallpaperOpacity, 0);
-    assert.equal(store.set({ wallpaperOpacity: 80 }).wallpaperOpacity, 80);
-    assert.equal(store.set({ wallpaperBlur: 0 }).wallpaperBlur, 0);
-    assert.equal(store.set({ wallpaperBlur: 32 }).wallpaperBlur, 32);
-    assert.equal(store.set({ wallpaperDim: 0 }).wallpaperDim, 0);
-    assert.equal(store.set({ wallpaperDim: 80 }).wallpaperDim, 80);
 
     // thoughtCustomPrompt trim & 2000-char cap
     const longPrompt = `  ${'x'.repeat(2400)}  `;
@@ -321,13 +313,6 @@ test('new settings keys validate enums, booleans, integer ranges, prompt cap, an
       { thoughtStyle: 'casual' },
       { thoughtCustomPrompt: 123 },
       { thoughtCustomPrompt: null },
-      { wallpaperOpacity: -1 },
-      { wallpaperOpacity: 81 },
-      { wallpaperOpacity: 22.5 },
-      { wallpaperOpacity: '22' },
-      { wallpaperBlur: -1 },
-      { wallpaperBlur: 33 },
-      { wallpaperDim: 81 },
       { smoothCaret: 'true' },
       { homeStudio: 1 }
     ];
@@ -384,7 +369,6 @@ test('SCENE_PRESETS are frozen, transition cleanly across presets, and native pr
     assert.equal(eco.motionLevel, 'off');
     assert.equal(eco.ambientIntensity, 0);
     assert.equal(eco.smoothCaret, false);
-    assert.equal(eco.wallpaperEnabled, false);
     assert.equal(eco.streamInk, false);
 
     const native = store.set(SCENE_PRESETS.native);
@@ -437,14 +421,12 @@ test('exportSanitizedSettings and importSanitizedSettings strip secrets and pres
       ...bundle.settings,
       motionLevel: 'ultra',
       unknownField: 'ignore',
-      wallpaperOpacity: 999,
       __proto__: { polluted: true }
     }
   }, current);
   assert.equal(patch1.motionLevel, 'ultra');
   assert.equal(patch1.proxyUrl, 'http://alice:secret123@127.0.0.1:7897');
   assert.equal('unknownField' in patch1, false);
-  assert.equal('wallpaperOpacity' in patch1, false);
 
   // Importing with masked proxy auth also preserves existing auth
   const patchMasked = importSanitizedSettings({
@@ -665,16 +647,13 @@ test('ThoughtSettingsSection supports diagnostics, cache clear, custom prompt, a
   assert.ok(h.requests.some(r => r.method === 'thought.profiles.delete'));
 });
 
-test('BetaAndArchiveSection & ConfigBackupSection invoke wallpaper, archive, export, and import IPC flows', async () => {
+test('BetaAndArchiveSection & ConfigBackupSection invoke archive, export, and import IPC flows', async () => {
   const clipboardLog = [];
   const downloads = [];
   const h = createHarness({
     clipboardLog,
     downloads,
     requestHandler: async (method, payload) => {
-      if (method === 'wallpaper.status') return { ok: true, hasMedia: false, fileName: '' };
-      if (method === 'wallpaper.setPath') return { ok: true, hasMedia: true, kind: 'video', fileName: 'bg.mp4' };
-      if (method === 'wallpaper.clear') return { ok: true, hasMedia: false, fileName: '' };
       if (method === 'archive.scan') return { ok: true, eligibleCount: 6, totalBytes: 15 * 1024 * 1024 };
       if (method === 'archive.run') return { ok: true, archivedCount: 6, mbFreed: 15.0 };
       if (method === 'archive.restore') return { ok: true, restoredCount: 6, mbFreed: 15.0 };
@@ -694,12 +673,7 @@ test('BetaAndArchiveSection & ConfigBackupSection invoke wallpaper, archive, exp
   });
 
   // Beta & Archive
-  let betaTree = h.render(h.panels.BetaAndArchiveSection);
-  h.findByTestId(betaTree, 'agy-wallpaper-path-input').props.onChange({ target: { value: '/tmp/bg.mp4' } });
-  betaTree = h.render(h.panels.BetaAndArchiveSection);
-  h.findByTestId(betaTree, 'agy-wallpaper-apply-btn').props.onClick();
-  await h.flushMicrotasks();
-  h.findByTestId(betaTree, 'agy-setting-wallpaperOpacity').props.onChange({ target: { value: '45' } });
+  const betaTree = h.render(h.panels.BetaAndArchiveSection);
   h.findByTestId(betaTree, 'agy-archive-scan-btn').props.onClick();
   await h.flushMicrotasks();
   let betaAfterScan = h.render(h.panels.BetaAndArchiveSection);
@@ -710,10 +684,6 @@ test('BetaAndArchiveSection & ConfigBackupSection invoke wallpaper, archive, exp
   assert.ok(h.collectText(h.findByTestId(betaAfterRun, 'agy-archive-status')).includes('6'));
   h.findByTestId(betaAfterRun, 'agy-archive-restore-btn').props.onClick();
   await h.flushMicrotasks();
-  h.findByTestId(betaAfterRun, 'agy-wallpaper-clear-btn').props.onClick();
-  await h.flushMicrotasks();
-  assert.equal(h.getOptions().wallpaperOpacity, 45);
-  assert.equal(h.getOptions().wallpaperEnabled, true);
 
   // Config Backup export & import
   h.resetHooks();
