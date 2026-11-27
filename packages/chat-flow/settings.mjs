@@ -3,6 +3,8 @@ export const CHAT_FLOW_DEFAULTS = Object.freeze({
   keepTurnOutline: true,
   keepOverviewOpen: true,
   responseBranch: true,
+  conversationMove: true,
+  btwSubtree: true,
   copySessionMarkdown: true,
   messageEdit: true,
   inlineImages: true,

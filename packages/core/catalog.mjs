@@ -26,12 +26,13 @@ export const MODULE_CATALOG = Object.freeze([
     category: 'core-pack',
     displayName: Object.freeze({ 'zh-CN': '对话交互增强', 'zh-TW': '對話互動增強', en: 'Chat Flow Enhancements' }),
     description: Object.freeze({
-      'zh-CN': '原位消息编辑、行内图片胶囊、分支会话、复制 Markdown、/goal 目标栏、代码块折叠与行内 Diff。',
-      'zh-TW': '原位訊息編輯、行內圖片膠囊、分支會話、複製 Markdown、/goal 目標欄、程式碼塊摺疊與行內 Diff。',
-      en: 'In-place message editing, inline image chips, branching, Markdown copy, /goal bar, code folding, and inline diff.'
+      'zh-CN': '灵活移动会话所属项目、/btw 侧边子对话树、原位消息编辑、行内图片胶囊、分支会话、复制 Markdown、/goal 目标栏、代码块折叠与行内 Diff。',
+      'zh-TW': '靈活移動會話所屬專案、/btw 側邊子對話樹、原位訊息編輯、行內圖片膠囊、分支會話、複製 Markdown、/goal 目標欄、程式碼塊摺疊與行內 Diff。',
+      en: 'Flexible project move, nested /btw side-chat tree, in-place message editing, inline image chips, branching, Markdown copy, /goal bar, code folding, and inline diff.'
     }),
     settingsKeys: Object.freeze([
       'compact', 'keepTurnOutline', 'keepOverviewOpen', 'responseBranch',
+      'conversationMove', 'btwSubtree',
       'copySessionMarkdown', 'messageEdit', 'inlineImages', 'goalBar',
       'stageUpdates', 'efficientIO', 'pragmaticCoding', 'effortSlider',
       'effortMemory', 'codeBlockFold', 'railHoverOutline', 'inlineStepDiff',
@@ -39,7 +40,7 @@ export const MODULE_CATALOG = Object.freeze([
       'chatModeBeta', 'homeStudio'
     ]),
     clientHelpers: Object.freeze([]),
-    clientScripts: Object.freeze(['native-inline-images.js', 'prism-workbench.js'])
+    clientScripts: Object.freeze(['native-inline-images.js', 'prism-workbench.js', 'native-chat-tree.js'])
   }),
   Object.freeze({
     id: 'workspace-nav',

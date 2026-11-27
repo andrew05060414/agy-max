@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
+import { createHookBus } from '../packages/core/hook-bus.mjs';
 import { nativeSource } from '../lib/native-host.mjs';
 import { createSettingsStore, DEFAULT_SETTINGS } from '../lib/settings.mjs';
 import { ALL_MODULE_IDS, DEFAULT_MODULE_IDS } from '../packages/core/catalog.mjs';
@@ -313,6 +314,59 @@ test('all package manifests, module sources, and build scripts contain zero midd
   for (const file of filesToCheck) {
     const content = readFileSync(file, 'utf8');
     assert.equal(content.includes('\u00b7'), false, `Unexpected middle dot in ${file}`);
+  }
+});
+
+test('all unpacked module bundles load service.mjs cleanly outside repo tree with zero parent-relative imports', async () => {
+  buildAllModuleSeeds(REPO_ROOT);
+  for (const modId of ALL_MODULE_IDS) {
+    const pkgDir = join(REPO_ROOT, 'packages', modId);
+    for (const entry of readdirSync(pkgDir)) {
+      if (!/\.(?:m?js)$/.test(entry) || /\.test\.m?js$/.test(entry)) continue;
+      const src = readFileSync(join(pkgDir, entry), 'utf8');
+      assert.equal(/(?:from|import)\s*\(?['"]\.\.\//.test(src), false, `Parent-relative import forbidden in ${modId}/${entry}`);
+    }
+  }
+
+  const s = makeSandbox();
+  try {
+    const settingsStore = createSettingsStore(s.dataDir);
+    const registry = createModuleRegistry({
+      home: s.home,
+      pluginRoot: REPO_ROOT,
+      dataDir: s.dataDir,
+      settingsStore,
+      defaultSettings: DEFAULT_SETTINGS,
+      version: '1.4.1'
+    });
+    for (const optId of ['optics', 'accounts', 'proxy', 'ssh-remote']) {
+      await registry.installModule(optId, { preferSeed: true });
+    }
+    const bus = createHookBus();
+    const coreCtx = {
+      pluginRoot: REPO_ROOT,
+      dataDir: s.dataDir,
+      appDir: join(s.home, '.gemini', 'antigravity'),
+      settings: settingsStore,
+      remote: {},
+      parseSessionData: () => ({ turns: [], requests: [], executions: [] }),
+      marketplaceTranslator: { translate: async items => items },
+      triggerRelaunch: () => ({ scheduled: false }),
+      isRelaunchPending: () => false
+    };
+    for (const modId of ALL_MODULE_IDS) {
+      const modDir = registry.moduleDir(modId);
+      assert.ok(modDir && modDir.startsWith(s.dataDir), `Expected ${modId} unpacked under dataDir, got ${modDir}`);
+      const entryPath = join(modDir, 'service.mjs');
+      if (existsSync(entryPath)) {
+        const mod = await import(pathToFileURL(entryPath).href);
+        if (typeof mod.registerModule === 'function') {
+          await mod.registerModule(bus, coreCtx);
+        }
+      }
+    }
+  } finally {
+    s.clean();
   }
 });
 

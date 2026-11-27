@@ -6,5 +6,5 @@
   "displayName": { "zh-CN": "对话交互增强", "en": "Chat Flow Enhancements" },
   "serverEntry": "./service.mjs",
   "settingsSchema": "./settings.mjs",
-  "clientScripts": ["native-inline-images.js", "prism-workbench.js"]
+  "clientScripts": ["native-inline-images.js", "prism-workbench.js", "native-chat-tree.js"]
 }

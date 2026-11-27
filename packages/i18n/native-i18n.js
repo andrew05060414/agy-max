@@ -39,6 +39,11 @@
     ['Search shortcuts...', '搜索快捷键...'],
     ['Search shortcuts…', '搜索快捷键…'],
     ['Settings for conversations outside of projects', '未关联项目的会话设置'],
+    ['Move to Project', '移动到项目'],
+    ['Remove from Project', '移出项目'],
+    ['Move to Workspace', '移动到工作区'],
+    ['Remove from Workspace', '移出工作区'],
+    ['Outside of Project', '不属于任何项目'],
     ['Hide breakdown', '隐藏明细'],
     ['Notification settings', '通知设置'],
     ['Automatic check for updates', '自动检查更新']
