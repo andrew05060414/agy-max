@@ -310,8 +310,30 @@ export const SITE_CONTENT = {
       allReleasesLabel: '在 GitHub 查看全部版本',
       entries: [
         {
-          version: 'v1.4.0',
+          version: 'v1.4.1',
           tag: '最新',
+          title: 'SSH 连接与传文件更稳、图片右键菜单修复、下线本地壁纸',
+          highlights: [
+            'SSH 握手被中途断开时自动重试一次（命令尚未执行，不会重复运行）；持续失败会提示是网络或网关问题，不再误报为密钥错误。',
+            '服务器没有 sftp 子系统时，传文件自动改用旧版 scp 协议；一键免密改为给每台服务器单独生成密钥，并启用 IdentitiesOnly 防止认证次数被用光。',
+            '修复 [Image #N] 图片芯片吞掉右键、图片右键菜单弹不出来的问题。',
+            '下线几乎看不见、还会挤压聊天布局的本地壁纸功能，旧设置中的壁纸项自动忽略。升级后需完全退出并重新打开 Antigravity。'
+          ]
+        },
+        {
+          version: 'v1.4.1',
+          tag: 'Latest',
+          title: 'Sturdier SSH connections and transfers, image context menu fix, local wallpaper removed',
+          highlights: [
+            'A dropped SSH handshake is retried once (the command had not started, so it never runs twice); persistent failures are reported as network or gateway problems instead of a wrong key.',
+            'Transfers fall back to the legacy scp protocol on servers without sftp, and one-click passwordless login now creates a dedicated key per server with IdentitiesOnly enabled.',
+            'Fixed [Image #N] image chips swallowing right clicks, which kept the image context menu from opening.',
+            'Removed the barely visible local wallpaper that squeezed the chat layout; leftover wallpaper settings are ignored. Fully quit and reopen Antigravity after upgrading.'
+          ]
+        },
+        {
+          version: 'v1.4.0',
+          tag: '',
           title: '单窗口 SSH 远程项目、行内图片引用芯片、插件市场动态翻译与 Win11 深度兼容',
           highlights: [
             '在「创建项目 -> 远程 -> + Add Resource」新增 SSH 服务器入口，单窗口免远端二次授权管理 Linux 服务器，打通内置 MCP、不断流后台长任务、远端看图/Notebook、项目级 Skill/插件筛选、远程文件树与 Git Diff、跨机互传及内置终端。',
@@ -665,7 +687,7 @@ export const SITE_CONTENT = {
       entries: [
         {
           version: 'v1.4.0',
-          tag: 'Latest',
+          tag: '',
           title: 'Single-window SSH Remote Projects, inline image chips, dynamic marketplace translation & Win11 hardening',
           highlights: [
             'Added SSH Server under Create Project -> Remote -> + Add Resource for single-window Linux remote projects without remote re-auth, complete with built-in MCP, detached long-running jobs, remote image/notebook viewing, per-project Skill/Plugin scoping, remote File Tree & Git Diff, cross-machine transfers, and built-in SSH Terminal.',

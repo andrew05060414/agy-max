@@ -3,7 +3,7 @@ import { createSshProjectsStore } from '../lib/ssh-projects.mjs';
 import { createSshRunner } from '../lib/ssh-runner.mjs';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const SERVER_INFO = { name: 'agy-ssh-projects', version: '1.4.0' };
+const SERVER_INFO = { name: 'agy-ssh-projects', version: '1.4.1' };
 
 const store = createSshProjectsStore();
 const runner = createSshRunner({ store });
