@@ -7,7 +7,6 @@ import {
   DEFAULT_MODULE_IDS,
   MODULE_BY_ID,
   MODULE_CATALOG,
-  detectLegacyUsedOptionalModules,
   isKnownModuleId
 } from './catalog.mjs';
 import {
@@ -120,10 +119,7 @@ export function isSshModuleInstalled({ home = homedir() } = {}) {
   const manifestPath = join(root, 'antigravity', 'plugin_data', 'agy-max', 'modules-manifest.json');
   const manifest = readJsonSafe(manifestPath, null);
   if (!manifest || !Array.isArray(manifest.installed)) {
-    // Before v2 manifest initialization, preserve legacy SSH availability if projects exist
-    const sshData = join(root, 'antigravity', 'plugin_data', 'agy-max', 'ssh-projects');
-    return hasNonEmptyArrayInJson(join(sshData, 'projects.json'), 'projects')
-      || hasNonEmptyArrayInJson(join(sshData, 'hosts.json'), 'hosts');
+    return false;
   }
   return manifest.installed.includes('ssh-remote')
     && existsSync(join(root, 'antigravity', 'plugin_data', 'agy-max', 'modules', 'ssh-remote', 'module.json'));
@@ -272,15 +268,7 @@ export function createModuleRegistry({
     if (initializingManifest) return initializingManifest;
     let manifest = readManifest();
     if (!manifest) {
-      const settingsPath = join(resolvedDataDir, 'settings.json');
-      const hadLegacySettings = existsSync(settingsPath);
-      const rawSettings = settingsStore ? settingsStore.get() : readJsonSafe(settingsPath, {});
-      const hasSavedAccounts = hasNonEmptyArrayInJson(join(resolvedDataDir, 'accounts.json'), 'accounts');
-      const sshDir = join(resolvedDataDir, 'ssh-projects');
-      const hasSavedSsh = hasNonEmptyArrayInJson(join(sshDir, 'projects.json'), 'projects')
-        || hasNonEmptyArrayInJson(join(sshDir, 'hosts.json'), 'hosts');
-      const legacyExtra = detectLegacyUsedOptionalModules(rawSettings, { hasSavedAccounts, hasSavedSsh });
-      const initialInstalled = [...new Set([...DEFAULT_MODULE_IDS, ...legacyExtra])];
+      const initialInstalled = [...DEFAULT_MODULE_IDS];
       for (const id of initialInstalled) {
         const modDir = join(modulesRoot, id);
         const curSeedSha = seedDigest(id);
@@ -294,7 +282,7 @@ export function createModuleRegistry({
       manifest = {
         format: 1,
         initializedVersion: version,
-        migratedFromLegacy: hadLegacySettings && legacyExtra.length > 0,
+        migratedFromLegacy: false,
         installed: initialInstalled,
         explicitlyUninstalled: []
       };

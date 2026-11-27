@@ -159,7 +159,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 ### 更新与卸载
 
-- **应用内更新**：打开 **Antigravity Max -> 设置 -> 关于 -> 检查更新**，点击 **立即更新** 自动完成 SHA-256 校验与替换，启动失败会自动回滚旧版。
+- **应用内更新**：打开 **Antigravity Max -> 设置 -> 版本更新**，点击 **检查更新** 或 **自动更新** 即可自动完成 SHA-256 校验与替换，启动失败会自动回滚旧版。
 - **卸载**：运行 `sh ./uninstall.sh`（macOS / Linux / WSL2）或 `powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1`（Windows）。末尾加 `--keep-settings` 可保留个人配置。卸载时会自动清理本插件托管的组件，同时完整保留你之前独立安装的插件、聊天记录和账号。
 
 ---

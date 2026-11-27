@@ -17,7 +17,7 @@
     ]
   },
   "agy-max-ssh-boundary": {
-    "enabled": true,
+    "enabled": false,
     "SessionStart": [
       {
         "type": "command",

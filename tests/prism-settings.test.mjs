@@ -458,10 +458,11 @@ test('prism-panels.js renders CategoryFilter, ScenePresetBar, Optics, and Workbe
   // Category filter
   let pickedCategory = '';
   const catTree = h.render(h.panels.SettingsCategoryFilter, {
-    value: 'all',
+    value: 'updates',
     onChange: next => { pickedCategory = next; }
   });
-  for (const cat of ['all', 'optics', 'workbench', 'thought', 'telemetry', 'accounts', 'beta']) {
+  assert.equal(h.findByTestId(catTree, 'agy-settings-cat-all'), null);
+  for (const cat of ['updates', 'optics', 'workbench', 'thought', 'telemetry', 'accounts', 'beta']) {
     const btn = h.findByTestId(catTree, `agy-settings-cat-${cat}`);
     assert.ok(btn, `Missing category button ${cat}`);
   }
@@ -478,7 +479,7 @@ test('prism-panels.js renders CategoryFilter, ScenePresetBar, Optics, and Workbe
 
   // Keyboard navigation on SettingsCategoryFilter
   const focusCalls = [];
-  catTree.props && h.findByTestId(catTree, 'agy-settings-cat-all').props.onKeyDown({
+  catTree.props && h.findByTestId(catTree, 'agy-settings-cat-updates').props.onKeyDown({
     key: 'ArrowRight',
     preventDefault() {},
     currentTarget: { parentElement: { children: [{ focus() { focusCalls.push(0); } }, { focus() { focusCalls.push(1); } }] } }
@@ -838,7 +839,7 @@ test('5-locale resolution (zh-CN, zh-TW, yue, en, ja), zero middle-dots, no ESM 
   for (const lang of ['zh-CN', 'zh-TW', 'yue', 'en', 'ja']) {
     h.setLanguage(lang);
     for (const comp of [
-      () => h.render(h.panels.SettingsCategoryFilter, { value: 'all' }),
+      () => h.render(h.panels.SettingsCategoryFilter, { value: 'updates' }),
       () => h.render(h.panels.ScenePresetBar),
       () => h.render(h.panels.OpticsSettingsSection),
       () => h.render(h.panels.WorkbenchSettingsSection),

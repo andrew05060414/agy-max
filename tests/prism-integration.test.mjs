@@ -9,9 +9,10 @@ import vm from 'node:vm';
 import { createPrismService } from '../lib/prism-service.mjs';
 import { createSettingsStore } from '../lib/settings.mjs';
 import { nativeSource } from '../lib/native-host.mjs';
+import { ALL_MODULE_IDS } from '../packages/core/catalog.mjs';
 
 test('Powertools includes Prism script factories in one compilable renderer payload', () => {
-  const source = nativeSource('https://127.0.0.1:9999');
+  const source = nativeSource('https://127.0.0.1:9999', [], { activeModules: ALL_MODULE_IDS });
   assert.doesNotThrow(() => new vm.Script(source));
   for (const name of ['Optics', 'Workbench', 'PrismPanels', 'PrismIntegration']) {
     assert.ok(source.includes(`globalThis.__agyCreate${name}`), name);

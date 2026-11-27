@@ -39,6 +39,7 @@ function page(ready = false) {
 test('SSH command paste observes setting changes without reinstalling its listener', async () => {
   const p = page(true);
   const settings = { enabled: true, sshCommandPaste: true };
+  p.context.__agyInstalledModules = ['telemetry', 'chat-flow', 'workspace-nav', 'i18n', 'ssh-remote'];
   p.context.__agyInitialSettings = settings;
   let change, enabled, installs = 0;
   p.context.__agyPanels = env => { change = env.change; };
@@ -75,11 +76,16 @@ test('new-document injection waits for head and body and initializes exactly onc
   assert.equal(p.nodes.length, 1);
 });
 
-test('already-loaded injection initializes without waiting and disposes cleanly', () => {
+test('already-loaded injection initializes with only the 4 default modules and disposes cleanly', () => {
   const p = page(true);
+  let panelEnv = null;
+  p.context.__agyPanels = env => { panelEnv = env; };
   vm.runInContext(source, p.context);
   assert.equal(p.callbacks.has('DOMContentLoaded'), false);
   assert.equal(p.context.__agyPowertools.status.healthy, true);
+  assert.equal(panelEnv.activeModuleCount(), 4);
+  for (const coreId of ['telemetry', 'chat-flow', 'workspace-nav', 'i18n']) assert.equal(panelEnv.hasModule(coreId), true);
+  for (const optId of ['optics', 'accounts', 'proxy', 'ssh-remote']) assert.equal(panelEnv.hasModule(optId), false);
   assert.equal(p.document.documentElement.hasAttribute('data-agy-keep-outline'), true);
   p.context.__agyPowertools.dispose();
   assert.equal(p.context.__agyPowertools, undefined);
@@ -194,6 +200,7 @@ test('accountSwitcher respects multiAccount master switch, toggles native settin
   pOff.context.__agyNativeAdapter.installPage = () => true;
   pOff.context.__agyPanels = () => ({ Page: () => null, Sidebar: () => null, AccountSwitcher: () => null, dispose() {} });
   pOff.document.querySelector = sel => sel === '[data-testid="settings-button"]' ? offSettingsBtn : null;
+  pOff.context.__agyInstalledModules = ['telemetry', 'chat-flow', 'workspace-nav', 'i18n', 'accounts'];
   pOff.context.__agyInitialSettings = { enabled: true, multiAccount: false, accountSwitcher: true };
   vm.runInContext(source, pOff.context);
   assert.equal(offMounts.length, 0);
@@ -221,6 +228,7 @@ test('accountSwitcher respects multiAccount master switch, toggles native settin
     dispose() {}
   });
   p.document.querySelector = sel => sel === '[data-testid="settings-button"]' ? settingsBtn : null;
+  p.context.__agyInstalledModules = ['telemetry', 'chat-flow', 'workspace-nav', 'i18n', 'accounts'];
   p.context.__agyInitialSettings = { enabled: true, multiAccount: true, accountSwitcher: true };
   vm.runInContext(source, p.context);
   assert.equal(mountedNodes.length, 1);
@@ -389,6 +397,7 @@ test('cold-start proxy prompt banner appears on mismatch, handles unreachable po
       }
     });
   };
+  p.context.__agyInstalledModules = ['telemetry', 'chat-flow', 'workspace-nav', 'i18n', 'proxy'];
   p.context.__agyInitialSettings = { enabled: true, proxyEnabled: true, proxyUrl: 'http://127.0.0.1:7897', language: 'zh-CN' };
   vm.runInContext(source, p.context);
   await new Promise(resolve => setTimeout(resolve, 20));
@@ -611,6 +620,7 @@ test('startAddAccount awaits active sync and calls accounts.completeAdd, and ref
       }
     });
   };
+  p.context.__agyInstalledModules = ['telemetry', 'chat-flow', 'workspace-nav', 'i18n', 'accounts'];
   p.context.__agyInitialSettings = { enabled: true, multiAccount: true, autoSwitchAccount: true, language: 'zh-CN' };
   vm.runInContext(source, p.context);
   await new Promise(r => setTimeout(r, 20));

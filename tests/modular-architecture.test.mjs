@@ -145,10 +145,10 @@ test('online SHA-256 verified module download, offline seed fallback, and data-p
   }
 });
 
-test('Scheme C dev-local directory takes priority and v1.4.x upgrade auto-retains active optional modules', async () => {
+test('Scheme C dev-local directory takes priority while optional modules stay off by default even with legacy files', async () => {
   const s = makeSandbox();
   try {
-    // Simulate legacy v1.4.x user who had proxy + multi-account enabled before upgrading
+    // Even if legacy settings/accounts exist on disk, optional modules must stay disabled until explicitly installed
     writeFileSync(join(s.dataDir, 'settings.json'), JSON.stringify({
       enabled: true,
       proxyEnabled: true,
@@ -160,7 +160,7 @@ test('Scheme C dev-local directory takes priority and v1.4.x upgrade auto-retain
       accounts: [{ id: 'acc-1', email: 'user@example.com' }]
     }));
 
-    // Also place a standalone Dev-Local plugin at ~/.gemini/config/plugins/agy-optics
+    // Place a standalone Dev-Local plugin at ~/.gemini/config/plugins/agy-optics
     const devOpticsDir = join(s.home, '.gemini', 'config', 'plugins', 'agy-optics');
     mkdirSync(devOpticsDir, { recursive: true });
     writeFileSync(join(devOpticsDir, 'module.json'), JSON.stringify({ id: 'optics', version: '1.4.1', clientScripts: ['prism-optics.js'] }));
@@ -178,8 +178,9 @@ test('Scheme C dev-local directory takes priority and v1.4.x upgrade auto-retain
 
     const list = registry.listModules();
     const byId = new Map(list.map(m => [m.id, m]));
-    assert.equal(byId.get('proxy').active, true);
-    assert.equal(byId.get('accounts').active, true);
+    assert.equal(byId.get('proxy').active, false);
+    assert.equal(byId.get('accounts').active, false);
+    assert.equal(byId.get('accounts').hasSavedData, true);
     assert.equal(byId.get('ssh-remote').active, false);
     assert.equal(byId.get('optics').active, true);
     assert.equal(byId.get('optics').source, 'dev-local');
@@ -281,14 +282,23 @@ test('ModulesCenter UI renders active/inactive cards, dev-local badges, and hide
   assert.ok(modHtml.includes('agy-module-dev-ssh-remote'));
 
   hookIdx = 0; stateSlots = [];
-  const settingsWithoutOptics = renderTree(h(panels.Settings));
-  assert.equal(settingsWithoutOptics.includes('agy-setting-row-userBubbleTint'), false);
-  assert.equal(settingsWithoutOptics.includes('agy-setting-row-multiAccount'), false);
-  assert.equal(settingsWithoutOptics.includes('agy-setting-row-contextRing'), true);
+  const settingsDefaultUpdates = renderTree(h(panels.Settings));
+  assert.equal(settingsDefaultUpdates.includes('agy-settings-cat-all'), false);
+  assert.equal(settingsDefaultUpdates.includes('agy-settings-cat-updates'), true);
+  assert.equal(settingsDefaultUpdates.includes('agy-auto-update'), true);
+  assert.equal(settingsDefaultUpdates.includes('agy-settings-cat-optics'), false);
+  assert.equal(settingsDefaultUpdates.includes('agy-setting-row-userBubbleTint'), false);
+  assert.equal(settingsDefaultUpdates.includes('agy-setting-row-contextRing'), false);
+
+  hookIdx = 0; stateSlots = [false, 'telemetry'];
+  const settingsTelemetry = renderTree(h(panels.Settings));
+  assert.equal(settingsTelemetry.includes('agy-setting-row-contextRing'), true);
+  assert.equal(settingsTelemetry.includes('agy-auto-update'), false);
 
   activeSet.add('optics');
-  hookIdx = 0; stateSlots = [];
+  hookIdx = 0; stateSlots = [false, 'optics'];
   const settingsWithOptics = renderTree(h(panels.Settings));
+  assert.equal(settingsWithOptics.includes('agy-settings-cat-optics'), true);
   assert.equal(settingsWithOptics.includes('agy-setting-row-userBubbleTint'), true);
 });
 

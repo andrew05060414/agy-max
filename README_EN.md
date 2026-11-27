@@ -159,7 +159,7 @@ Restart Antigravity once you finish your current task; **Antigravity Max** will 
 
 ### Updates and uninstall
 
-- **In-app updates**: Go to **Antigravity Max -> Settings -> About -> Check for updates** and click **Install update**. Packages are SHA-256 verified and roll back automatically if startup fails.
+- **In-app updates**: Go to **Antigravity Max -> Settings -> Updates** and click **Check for updates** or **Auto update**. Packages are SHA-256 verified and roll back automatically if startup fails.
 - **Uninstall**: Run `sh ./uninstall.sh` (macOS / Linux / WSL2) or `powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1` (Windows). Append `--keep-settings` to keep your preferences.
 
 ---

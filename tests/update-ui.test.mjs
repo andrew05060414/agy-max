@@ -15,42 +15,54 @@ function surface(release,project={name:'Antigravity Max'}){
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 
-test('About links the project name directly and keeps subscription and version on the same row',()=>{
-  const project={name:'Antigravity Max',githubUrl:'https://github.com/wangbingnan136/agy-max',subscriptionUrl:'https://example.com/subscribe'};
+test('Updates panel shows current version cleanly and validates project GitHub link',()=>{
+  const project={name:'Antigravity Max',githubUrl:'https://github.com/wangbingnan136/agy-max'};
   const ui=surface(null,project),tree=ui.render(),card=tree.children[0],rows=card.children;
   assert.equal(rows.filter(row=>row?.type==='row').length,2);
   const anchor=ui.find(tree,'agy-project-link');
   assert.equal(anchor.type,'a');assert.equal(anchor.children[0],project.name);
   assert.equal(anchor.props.href,project.githubUrl);assert.equal(anchor.props.target,'_blank');assert.equal(anchor.props.rel,'noopener noreferrer');
-  assert.equal(rows[0].props.label,anchor);
-  assert.equal(ui.find(rows[0],'agy-about-version').children[0],'2.12.0');
-  assert.equal(ui.find(rows[0],'agy-subscription-link').props.href,project.subscriptionUrl);
+  assert.equal(ui.find(rows[0],'agy-about-version').children[0],'v2.12.0');
+  assert.ok(ui.find(rows[1],'agy-check-update'));
+  assert.ok(ui.find(rows[1],'agy-auto-update'));
+  assert.equal(ui.find(tree,'agy-about-credits'),null);
 });
 
-test('About shows plain project text and hides subscription when links are missing or unsafe',()=>{
+test('Updates panel renders plain project name when GitHub link is missing or unsafe',()=>{
   for(const url of [undefined,'','javascript:alert(1)','data:text/html,test','https://user:secret@example.com/']){
-    const ui=surface(null,{name:'Antigravity Max',githubUrl:url,subscriptionUrl:url}),tree=ui.render();
+    const ui=surface(null,{name:'Antigravity Max',githubUrl:url}),tree=ui.render();
     assert.equal(ui.find(tree,'agy-project-link'),null);
     const name=ui.find(tree,'agy-project-name');assert.equal(name.type,'span');assert.equal(name.children[0],'Antigravity Max');assert.equal(name.props.href,undefined);
-    assert.equal(ui.find(tree,'agy-subscription-link'),null);
   }
 });
 
-test('About installs only the selected verified release and displays progress and rollback results',async()=>{
+test('Updates panel supports manual check+install as well as one-click auto-update with progress and rollback',async()=>{
   const ui=surface({status:'available',version:'2.13.0',canInstall:true,releaseUrl:'https://github.com/test/project/releases/tag/v2.13.0'});
   ui.find(ui.render(),'agy-check-update').props.onClick();await tick();let tree=ui.render();assert.ok(ui.find(tree,'agy-install-update'));
   ui.find(tree,'agy-install-update').props.onClick();await tick();tree=ui.render();assert.equal(ui.find(tree,'agy-install-update').props.disabled,true);
   assert.deepEqual(ui.calls.find(call=>call.method==='update.install').payload.version,'2.13.0');assert.ok(ui.find(tree,'agy-install-status').children.includes('Preparing update…'));
   ui.setStatus({status:'rolled-back'});ui.effects[0]();await tick();tree=ui.render();assert.equal(ui.find(tree,'agy-install-status').children[0],'Update failed. Previous version restored.');
   ui.setStatus({status:'completed'});ui.effects[0]();await tick();assert.equal(ui.find(ui.render(),'agy-install-status').children[0],'Update installed');
+
+  // Direct one-click Auto update checks first and triggers update.install automatically
+  const oneClick=surface({status:'available',version:'2.14.0',canInstall:true,releaseUrl:'https://github.com/test/project/releases/tag/v2.14.0'});
+  oneClick.find(oneClick.render(),'agy-auto-update').props.onClick();await tick();await tick();
+  assert.deepEqual(oneClick.calls.map(c=>c.method),['update.check','update.install']);
+  assert.equal(oneClick.calls[1].payload.version,'2.14.0');
+
+  // Direct one-click Auto update stops cleanly when already up to date
+  const upToDate=surface({status:'current',version:'2.12.0'});
+  upToDate.find(upToDate.render(),'agy-auto-update').props.onClick();await tick();await tick();
+  assert.deepEqual(upToDate.calls.map(c=>c.method),['update.check']);
+  assert.ok(upToDate.find(upToDate.render(),'agy-update-status').children[0].children.includes('Up to date'));
 });
 
-test('releases without an installable package expose the download page without an install button',async()=>{
+test('releases without an installable package expose the download page and hide auto-update buttons',async()=>{
   const ui=surface({status:'available',version:'2.13.0',canInstall:false,releaseUrl:'https://github.com/test/project/releases/tag/v2.13.0'});
-  ui.find(ui.render(),'agy-check-update').props.onClick();await tick();const tree=ui.render();assert.equal(ui.find(tree,'agy-install-update'),null);assert.ok(ui.find(tree,'agy-update-download'));assert.equal(ui.calls.some(call=>call.method==='update.install'),false);
+  ui.find(ui.render(),'agy-check-update').props.onClick();await tick();const tree=ui.render();assert.equal(ui.find(tree,'agy-install-update'),null);assert.equal(ui.find(tree,'agy-auto-update'),null);assert.ok(ui.find(tree,'agy-update-download'));assert.equal(ui.calls.some(call=>call.method==='update.install'),false);
 });
 
-test('About renders GitHub release notes Markdown safely without raw syntax or unsafe links',async()=>{
+test('Updates panel renders GitHub release notes Markdown safely without raw syntax or unsafe links',async()=>{
   const md=[
     '## 中文说明',
     '- **新增功能**：支持 `v2.13.7` [查看详情](https://github.com/wangbingnan136/agy-max)',

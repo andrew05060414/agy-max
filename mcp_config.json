@@ -1,11 +1,3 @@
 {
-  "mcpServers": {
-    "agy-ssh-projects": {
-      "command": "node",
-      "args": [
-        "-e",
-        "var f=require('fs'),p=require('path'),o=require('os'),u=require('url'),e=process.env,h='';try{h=o.homedir()}catch(x){}for(var d of[e.PLUGIN_ROOT,e.AGY_PLUGIN_ROOT,h?p.join(h,'.gemini','config','plugins','agy-max'):'','.']){if(d){var s=p.resolve(d,'scripts','ssh-mcp-server.mjs');if(f.existsSync(s)&&f.existsSync(p.resolve(d,'plugin.json'))){import(u.pathToFileURL(s).href);break;}}}"
-      ]
-    }
-  }
+  "mcpServers": {}
 }
