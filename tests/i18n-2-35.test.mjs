@@ -8,7 +8,7 @@ import { toZhTw } from '../lib/zh-tw.mjs';
 function loadT() {
   const document = { nodeType: 9, createTreeWalker: () => ({ nextNode: () => null }), querySelectorAll: () => [] };
   const context = vm.createContext({ document, NodeFilter: { SHOW_TEXT: 4 }, MutationObserver: class { observe() {} disconnect() {} }, __agyToZhTw: toZhTw });
-  vm.runInContext(readFileSync(join(import.meta.dirname, '..', 'lib', 'native-i18n.js'), 'utf8'), context);
+  vm.runInContext(readFileSync(join(import.meta.dirname, '..', 'packages', 'i18n', 'native-i18n.js'), 'utf8'), context);
   return context.__agyI18n.t;
 }
 

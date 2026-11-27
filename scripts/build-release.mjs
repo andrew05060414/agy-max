@@ -2,10 +2,22 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {dirname,resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {collectPackage,encodePackage,releaseName,sha256} from '../lib/package.mjs';
+import {ALL_MODULE_IDS} from '../packages/core/catalog.mjs';
+import {collectModuleBundle,encodeModuleBundle,moduleReleaseName} from '../packages/core/module-bundle.mjs';
+import {buildAllModuleSeeds} from './build-seeds.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..'),out=resolve(process.argv[2]||join(root,'dist'));
+buildAllModuleSeeds(root);
 const bundle=collectPackage(root),bytes=encodePackage(bundle),name=releaseName(bundle.version);
 mkdirSync(out,{recursive:true});writeFileSync(join(out,name),bytes);writeFileSync(join(out,name+'.sha256'),sha256(bytes)+'  '+name+'\n');
+const moduleAssets=[];
+for(const id of ALL_MODULE_IDS){
+  const modBundle=collectModuleBundle(join(root,'packages',id),bundle.version,{repoRoot:root});
+  const modBytes=encodeModuleBundle(modBundle),modName=moduleReleaseName(id,bundle.version);
+  writeFileSync(join(out,modName),modBytes);
+  writeFileSync(join(out,modName+'.sha256'),sha256(modBytes)+'  '+modName+'\n');
+  moduleAssets.push({id,asset:modName,bytes:modBytes.length,sha256:sha256(modBytes)});
+}
 // ZIP is for manual installation. Updates use the validated bundle.
 function crc32(bytes){let crc=0xffffffff;for(const byte of bytes){crc^=byte;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return(crc^0xffffffff)>>>0;}
 const locals=[],central=[];let offset=0;
@@ -17,4 +29,4 @@ for(const file of bundle.files){
 }
 const directory=Buffer.concat(central),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50,0);end.writeUInt16LE(bundle.files.length,8);end.writeUInt16LE(bundle.files.length,10);end.writeUInt32LE(directory.length,12);end.writeUInt32LE(offset,16);
 writeFileSync(join(out,`agy-max-v${bundle.version}.zip`),Buffer.concat([...locals,directory,end]));
-console.log(JSON.stringify({version:bundle.version,files:bundle.files.length,bundle:name,sha256:sha256(bytes),zip:`agy-max-v${bundle.version}.zip`}));
+console.log(JSON.stringify({version:bundle.version,files:bundle.files.length,bundle:name,sha256:sha256(bytes),zip:`agy-max-v${bundle.version}.zip`,modules:moduleAssets.length}));

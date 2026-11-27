@@ -1,0 +1,358 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import { nativeSource } from '../lib/native-host.mjs';
+import { createSettingsStore, DEFAULT_SETTINGS } from '../lib/settings.mjs';
+import { ALL_MODULE_IDS, DEFAULT_MODULE_IDS } from '../packages/core/catalog.mjs';
+import { collectModuleBundle, encodeModuleBundle, moduleReleaseName, sha256Hex } from '../packages/core/module-bundle.mjs';
+import { createModuleRegistry } from '../packages/core/module-registry.mjs';
+import { buildAllModuleSeeds } from '../scripts/build-seeds.mjs';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+function makeSandbox() {
+  const root = mkdtempSync(join(tmpdir(), 'agy-mod-arch-'));
+  const home = join(root, 'home');
+  const dataDir = join(home, '.gemini', 'antigravity', 'plugin_data', 'agy-max');
+  mkdirSync(join(home, '.gemini', 'config', 'plugins'), { recursive: true });
+  mkdirSync(dataDir, { recursive: true });
+  return { root, home, dataDir, clean: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+test('fresh install pre-installs only the 4 core modules and excludes optional module bytes from nativeSource', () => {
+  buildAllModuleSeeds(REPO_ROOT);
+  const s = makeSandbox();
+  try {
+    const settingsStore = createSettingsStore(s.dataDir);
+    const registry = createModuleRegistry({
+      home: s.home,
+      pluginRoot: REPO_ROOT,
+      dataDir: s.dataDir,
+      settingsStore,
+      defaultSettings: DEFAULT_SETTINGS,
+      version: '1.4.1'
+    });
+
+    assert.deepEqual(registry.activeIds(), DEFAULT_MODULE_IDS);
+    for (const optId of ['optics', 'accounts', 'proxy', 'ssh-remote']) {
+      assert.equal(registry.isActive(optId), false);
+      assert.equal(existsSync(join(s.dataDir, 'modules', optId)), false);
+    }
+
+    const leanSrc = nativeSource('https://127.0.0.1:5000', [], {
+      activeModules: registry.activeIds(),
+      modulesCatalog: registry.listModules(),
+      resolveModuleDir: id => registry.moduleDir(id)
+    });
+    assert.equal(leanSrc.includes('function createOptics'), false);
+    assert.equal(leanSrc.includes('globalThis.__agyCreateSshProjects ='), false);
+    assert.equal(leanSrc.includes('function installSshCommandPaste'), false);
+    assert.equal(leanSrc.includes('__agyInlineImages'), true);
+    assert.equal(leanSrc.includes('__agyCreateAuxFileTree'), true);
+
+    const leanHash = leanSrc.match(/__agyNativeBuildHash="([0-9a-f]+)"/)?.[1];
+    const withOpticsSrc = nativeSource('https://127.0.0.1:5000', [], {
+      activeModules: [...registry.activeIds(), 'optics'],
+      resolveModuleDir: id => registry.moduleDir(id)
+    });
+    const opticsHash = withOpticsSrc.match(/__agyNativeBuildHash="([0-9a-f]+)"/)?.[1];
+    assert.notEqual(leanHash, opticsHash);
+    assert.equal(withOpticsSrc.includes('function createOptics'), true);
+  } finally {
+    s.clean();
+  }
+});
+
+test('online SHA-256 verified module download, offline seed fallback, and data-preserving vs purge uninstall', async () => {
+  const s = makeSandbox();
+  try {
+    const settingsStore = createSettingsStore(s.dataDir);
+    const opticsBundle = collectModuleBundle(join(REPO_ROOT, 'packages', 'optics'), '1.4.1', { repoRoot: REPO_ROOT });
+    const opticsGz = encodeModuleBundle(opticsBundle);
+    const opticsAsset = moduleReleaseName('optics', '1.4.1');
+    const opticsSha = sha256Hex(opticsGz);
+
+    let networkMode = 'ok';
+    const fetcher = async url => {
+      if (networkMode === 'offline') throw new Error('connect ETIMEDOUT');
+      if (String(url).endsWith('.sha256')) {
+        return { ok: true, text: async () => `${networkMode === 'tampered' ? '0'.repeat(64) : opticsSha}  ${opticsAsset}\n` };
+      }
+      return {
+        ok: true,
+        url: 'https://objects.githubusercontent.com/release-asset',
+        arrayBuffer: async () => opticsGz
+      };
+    };
+
+    const changes = [];
+    const registry = createModuleRegistry({
+      home: s.home,
+      pluginRoot: REPO_ROOT,
+      dataDir: s.dataDir,
+      settingsStore,
+      defaultSettings: DEFAULT_SETTINGS,
+      version: '1.4.1',
+      githubUrl: 'https://github.com/wangbingnan136/agy-max',
+      fetcher,
+      onModulesChanged: evt => { changes.push(`${evt.action}:${evt.id}`); }
+    });
+
+    // 1. Online verified install
+    const resOnline = await registry.installModule('optics');
+    assert.equal(resOnline.delivery, 'online');
+    assert.equal(registry.isActive('optics'), true);
+    assert.equal(existsSync(join(s.dataDir, 'modules', 'optics', 'prism-optics.js')), true);
+
+    // 2. Offline resilient fallback to local dormant seed (solves no-network proxy bootstrap)
+    networkMode = 'offline';
+    const resSeed = await registry.installModule('proxy');
+    assert.equal(resSeed.delivery, 'seed');
+    assert.equal(registry.isActive('proxy'), true);
+
+    // 3. Tampered online checksum is rejected and safely falls back to verified local seed
+    networkMode = 'tampered';
+    const resTamperFallback = await registry.installModule('accounts');
+    assert.equal(resTamperFallback.delivery, 'seed');
+    assert.equal(registry.isActive('accounts'), true);
+
+    // 4. Customize optics settings, then uninstall WITHOUT purge -> settings snapshot preserved & restored on reinstall
+    settingsStore.set({ themePalette: 'obsidian', userBubbleTint: true, userBubbleColor: '#336699' });
+    await registry.uninstallModule('optics', { purgeData: false });
+    assert.equal(registry.isActive('optics'), false);
+    assert.equal(registry.listModules().find(m => m.id === 'optics').hasSavedData, true);
+
+    settingsStore.set({ themePalette: 'native', userBubbleTint: false });
+    await registry.installModule('optics', { preferSeed: true });
+    assert.equal(settingsStore.get().themePalette, 'obsidian');
+    assert.equal(settingsStore.get().userBubbleTint, true);
+    assert.equal(settingsStore.get().userBubbleColor, '#336699');
+
+    // 5. Uninstall WITH purgeData: true -> snapshot wiped & settings reset to defaults
+    await registry.uninstallModule('optics', { purgeData: true });
+    assert.equal(registry.isActive('optics'), false);
+    assert.equal(registry.listModules().find(m => m.id === 'optics').hasSavedData, false);
+    assert.equal(settingsStore.get().themePalette, 'native');
+    assert.equal(settingsStore.get().userBubbleTint, false);
+    assert.ok(changes.includes('install:optics'));
+    assert.ok(changes.includes('uninstall:optics'));
+  } finally {
+    s.clean();
+  }
+});
+
+test('Scheme C dev-local directory takes priority and v1.4.x upgrade auto-retains active optional modules', async () => {
+  const s = makeSandbox();
+  try {
+    // Simulate legacy v1.4.x user who had proxy + multi-account enabled before upgrading
+    writeFileSync(join(s.dataDir, 'settings.json'), JSON.stringify({
+      enabled: true,
+      proxyEnabled: true,
+      proxyUrl: 'http://127.0.0.1:7897',
+      multiAccount: true
+    }));
+    writeFileSync(join(s.dataDir, 'accounts.json'), JSON.stringify({
+      activeId: 'acc-1',
+      accounts: [{ id: 'acc-1', email: 'user@example.com' }]
+    }));
+
+    // Also place a standalone Dev-Local plugin at ~/.gemini/config/plugins/agy-optics
+    const devOpticsDir = join(s.home, '.gemini', 'config', 'plugins', 'agy-optics');
+    mkdirSync(devOpticsDir, { recursive: true });
+    writeFileSync(join(devOpticsDir, 'module.json'), JSON.stringify({ id: 'optics', version: '1.4.1', clientScripts: ['prism-optics.js'] }));
+    writeFileSync(join(devOpticsDir, 'prism-optics.js'), '/* custom-dev-optics-marker */');
+
+    const settingsStore = createSettingsStore(s.dataDir);
+    const registry = createModuleRegistry({
+      home: s.home,
+      pluginRoot: REPO_ROOT,
+      dataDir: s.dataDir,
+      settingsStore,
+      defaultSettings: DEFAULT_SETTINGS,
+      version: '1.4.1'
+    });
+
+    const list = registry.listModules();
+    const byId = new Map(list.map(m => [m.id, m]));
+    assert.equal(byId.get('proxy').active, true);
+    assert.equal(byId.get('accounts').active, true);
+    assert.equal(byId.get('ssh-remote').active, false);
+    assert.equal(byId.get('optics').active, true);
+    assert.equal(byId.get('optics').source, 'dev-local');
+    assert.equal(byId.get('optics').localPath, devOpticsDir);
+
+    const devSrc = nativeSource('https://127.0.0.1:5000', [], {
+      activeModules: registry.activeIds(),
+      resolveModuleDir: id => registry.moduleDir(id)
+    });
+    assert.ok(devSrc.includes('custom-dev-optics-marker'));
+
+    // Dev-local directory cannot be deleted by store uninstall
+    await assert.rejects(() => registry.uninstallModule('optics'), /本地开发目录挂载/);
+    assert.equal(existsSync(join(devOpticsDir, 'prism-optics.js')), true);
+  } finally {
+    s.clean();
+  }
+});
+
+test('ModulesCenter UI renders active/inactive cards, dev-local badges, and hides uninstalled settings sections', () => {
+  const panelsSrc = readFileSync(join(REPO_ROOT, 'lib', 'native-panels.js'), 'utf8');
+  const prismPanelsSrc = readFileSync(join(REPO_ROOT, 'lib', 'prism-panels.js'), 'utf8');
+  let stateSlots = [];
+  let hookIdx = 0;
+  const R = {
+    Fragment: Symbol.for('react.fragment'),
+    createElement(type, props, ...children) {
+      return { type, props: props || {}, children: children.flat() };
+    },
+    useState(init) {
+      const i = hookIdx++;
+      if (!(i in stateSlots)) stateSlots[i] = typeof init === 'function' ? init() : init;
+      return [stateSlots[i], next => { stateSlots[i] = typeof next === 'function' ? next(stateSlots[i]) : next; }];
+    },
+    useEffect() {},
+    useRef: v => ({ current: v }),
+    useMemo: fn => fn(),
+    useCallback: fn => fn,
+    useSyncExternalStore: (_, get) => get()
+  };
+  const h = R.createElement;
+  const activeSet = new Set(['telemetry', 'chat-flow', 'workspace-nav', 'i18n']);
+  const mockCatalog = [
+    { id: 'telemetry', active: true, source: 'store', bytes: 51000, displayName: { 'zh-CN': '统计与额度' }, description: { 'zh-CN': '统计说明' } },
+    { id: 'optics', active: false, source: 'none', bytes: 0, hasSavedData: true, displayName: { 'zh-CN': '界面与光学' }, description: { 'zh-CN': '光学说明' } },
+    { id: 'ssh-remote', active: true, source: 'dev-local', localPath: '/dev/agy-ssh-remote', bytes: 32000, displayName: { 'zh-CN': 'SSH 远端工程' }, description: { 'zh-CN': 'SSH 说明' } }
+  ];
+
+  const ctx = vm.createContext({
+    React: R,
+    document: { head: { append() {} }, createElement: () => ({ dataset: {}, remove() {} }) },
+    location: { pathname: '/' },
+    Intl,
+    __agyDashboard: { dateRange: () => ({ start: 0, end: 1 }), summarizeRequests: () => ({ requests: [], models: [], points: [] }), distributionModels: () => [], subscriptionIdentity: () => ({ family: 'pro', style: 'pro', label: 'Pro' }) },
+    Uy: p => h('button', p, p.children),
+    UP: p => h('div', { 'data-testid': p['data-testid'] }, p.label, p.rightElement),
+    TP: p => h('div', null, p.children),
+    VP: p => h('section', null, p.title, p.children),
+    XP: p => h('input', p),
+    dq: p => h('span', p),
+    kT: p => h('div', null, p.children),
+    lT: p => h('div', null, p.children),
+    mT: p => h('div', null, p.children),
+    nT: p => h('div', null, p.children),
+    Wz: p => h('div', { 'data-testid': 'modal' }, p.children)
+  });
+  vm.runInContext(prismPanelsSrc, ctx);
+  vm.runInContext(panelsSrc, ctx);
+
+  const panels = ctx.__agyPanels({
+    t: s => s,
+    version: '1.4.1',
+    defaults: DEFAULT_SETTINGS,
+    options: () => ({ ...DEFAULT_SETTINGS, enabled: true }),
+    hasModuleCenter: true,
+    hasModule: id => activeSet.has(id),
+    modules: () => mockCatalog,
+    loadModules: async () => mockCatalog,
+    settingsError: () => '',
+    state: () => null,
+    dashboard: () => null,
+    capabilities: () => ({}),
+    subscribe: () => () => {},
+    revision: () => 1
+  });
+
+  function renderTree(node) {
+    if (node == null || typeof node === 'boolean' || typeof node === 'string' || typeof node === 'number') return String(node || '');
+    if (Array.isArray(node)) return node.map(renderTree).join(' ');
+    if (typeof node.type === 'function') return renderTree(node.type({ ...(node.props || {}), children: node.children }));
+    return [node.props?.['data-testid'] || '', ...(node.children || []).map(renderTree)].join(' ');
+  }
+
+  hookIdx = 0; stateSlots = [];
+  const modHtml = renderTree(h(panels.ModulesCenter));
+  assert.ok(modHtml.includes('agy-module-card-optics'));
+  assert.ok(modHtml.includes('agy-module-install-optics'));
+  assert.ok(modHtml.includes('未加载 (已保留配置)'));
+  assert.ok(modHtml.includes('agy-module-dev-ssh-remote'));
+
+  hookIdx = 0; stateSlots = [];
+  const settingsWithoutOptics = renderTree(h(panels.Settings));
+  assert.equal(settingsWithoutOptics.includes('agy-setting-row-userBubbleTint'), false);
+  assert.equal(settingsWithoutOptics.includes('agy-setting-row-multiAccount'), false);
+  assert.equal(settingsWithoutOptics.includes('agy-setting-row-contextRing'), true);
+
+  activeSet.add('optics');
+  hookIdx = 0; stateSlots = [];
+  const settingsWithOptics = renderTree(h(panels.Settings));
+  assert.equal(settingsWithOptics.includes('agy-setting-row-userBubbleTint'), true);
+});
+
+test('all package manifests, module sources, and build scripts contain zero middle-dot characters (U+00B7)', () => {
+  const filesToCheck = [join(REPO_ROOT, 'scripts', 'build-seeds.mjs'), join(REPO_ROOT, 'tests', 'modular-architecture.test.mjs')];
+  for (const dirName of ['core', ...ALL_MODULE_IDS]) {
+    const pkgDir = join(REPO_ROOT, 'packages', dirName);
+    for (const entry of readdirSync(pkgDir)) {
+      if (/\.(?:m?js|json)$/.test(entry)) filesToCheck.push(join(pkgDir, entry));
+    }
+  }
+  for (const file of filesToCheck) {
+    const content = readFileSync(file, 'utf8');
+    assert.equal(content.includes('\u00b7'), false, `Unexpected middle dot in ${file}`);
+  }
+});
+
+test('syncIntegrations: true initializes without recursion and toggles SSH MCP + boundary hook cleanly', async () => {
+  const s = makeSandbox();
+  try {
+    const installedDir = join(s.home, '.gemini', 'config', 'plugins', 'agy-max');
+    mkdirSync(installedDir, { recursive: true });
+    writeFileSync(join(installedDir, 'plugin.json'), JSON.stringify({ id: 'agy-max', version: '1.4.1' }));
+    writeFileSync(join(installedDir, 'mcp_config.json'), JSON.stringify({ mcpServers: { stale: { command: 'node' } } }));
+    writeFileSync(join(installedDir, 'hooks.json'), JSON.stringify({
+      'agy-max-telemetry': { enabled: false },
+      'agy-max-ssh-boundary': { enabled: true }
+    }));
+
+    const settingsStore = createSettingsStore(s.dataDir);
+    const registry = createModuleRegistry({
+      home: s.home,
+      pluginRoot: REPO_ROOT,
+      installedPluginDir: installedDir,
+      dataDir: s.dataDir,
+      settingsStore,
+      defaultSettings: DEFAULT_SETTINGS,
+      version: '1.4.1',
+      syncIntegrations: true
+    });
+
+    assert.deepEqual(registry.activeIds(), DEFAULT_MODULE_IDS);
+    assert.equal(registry.isActive('i18n'), true);
+    assert.equal(registry.isActive('ssh-remote'), false);
+
+    const mcpInitial = JSON.parse(readFileSync(join(installedDir, 'mcp_config.json'), 'utf8'));
+    const hooksInitial = JSON.parse(readFileSync(join(installedDir, 'hooks.json'), 'utf8'));
+    assert.deepEqual(mcpInitial, { mcpServers: {} });
+    assert.equal(hooksInitial['agy-max-ssh-boundary'].enabled, false);
+
+    await registry.installModule('ssh-remote', { preferSeed: true });
+    assert.equal(registry.isActive('ssh-remote'), true);
+    const mcpWithSsh = JSON.parse(readFileSync(join(installedDir, 'mcp_config.json'), 'utf8'));
+    const hooksWithSsh = JSON.parse(readFileSync(join(installedDir, 'hooks.json'), 'utf8'));
+    assert.ok(mcpWithSsh.mcpServers['agy-ssh-projects']);
+    assert.equal(hooksWithSsh['agy-max-ssh-boundary'].enabled, true);
+
+    await registry.uninstallModule('ssh-remote');
+    assert.equal(registry.isActive('ssh-remote'), false);
+    const mcpAfterUninstall = JSON.parse(readFileSync(join(installedDir, 'mcp_config.json'), 'utf8'));
+    const hooksAfterUninstall = JSON.parse(readFileSync(join(installedDir, 'hooks.json'), 'utf8'));
+    assert.deepEqual(mcpAfterUninstall, { mcpServers: {} });
+    assert.equal(hooksAfterUninstall['agy-max-ssh-boundary'].enabled, false);
+  } finally {
+    s.clean();
+  }
+});

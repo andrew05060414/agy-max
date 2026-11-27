@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import { nativeSource } from '../lib/native-host.mjs';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../lib/settings.mjs';
 
-const inlineImagesSrc = readFileSync(new URL('../lib/native-inline-images.js', import.meta.url), 'utf8');
+const inlineImagesSrc = readFileSync(new URL('../packages/chat-flow/native-inline-images.js', import.meta.url), 'utf8');
 const nativeClientSrc = readFileSync(new URL('../lib/native-client.js', import.meta.url), 'utf8');
 const nativeBindingsSrc = readFileSync(new URL('../lib/native-bindings.js', import.meta.url), 'utf8');
 

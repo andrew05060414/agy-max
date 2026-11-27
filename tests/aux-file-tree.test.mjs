@@ -10,7 +10,7 @@ import { nativeSource } from '../lib/native-host.mjs';
 import { DEFAULT_SETTINGS } from '../lib/settings.mjs';
 import { toZhTw } from '../lib/zh-tw.mjs';
 
-const auxTreeSource = readFileSync(new URL('../lib/aux-file-tree.js', import.meta.url), 'utf8');
+const auxTreeSource = readFileSync(new URL('../packages/workspace-nav/aux-file-tree.js', import.meta.url), 'utf8');
 
 function findByTestId(node, id) {
   if (!node || typeof node !== 'object') return null;

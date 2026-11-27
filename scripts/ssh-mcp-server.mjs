@@ -1,6 +1,17 @@
-import { posix } from 'node:path';
+import { homedir } from 'node:os';
+import { join, posix, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createSshProjectsStore } from '../lib/ssh-projects.mjs';
 import { createSshRunner } from '../lib/ssh-runner.mjs';
+import { isSshModuleInstalled } from '../packages/core/module-registry.mjs';
+
+const isInstalledPluginRuntime = (() => {
+  try {
+    return resolve(fileURLToPath(import.meta.url)).startsWith(join(resolve(homedir()), '.gemini', 'config', 'plugins'));
+  } catch {
+    return false;
+  }
+})();
 
 const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_INFO = { name: 'agy-ssh-projects', version: '1.4.1' };
@@ -332,10 +343,14 @@ async function handleRequest(req) {
       return;
     }
     if (method === 'tools/list') {
-      sendMessage({ jsonrpc: '2.0', id, result: { tools: TOOLS } });
+      const active = !isInstalledPluginRuntime || isSshModuleInstalled();
+      sendMessage({ jsonrpc: '2.0', id, result: { tools: active ? TOOLS : [] } });
       return;
     }
     if (method === 'tools/call') {
+      if (isInstalledPluginRuntime && !isSshModuleInstalled()) {
+        throw new Error('SSH 远端工程模块 (ssh-remote) 当前未安装，请在右侧栏「插件 -> Antigravity Max -> 模块」中一键安装后再使用。');
+      }
       const result = await callTool(params?.name, params?.arguments || {});
       sendMessage({ jsonrpc: '2.0', id, result });
       return;

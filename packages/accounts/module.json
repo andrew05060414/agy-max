@@ -1,0 +1,11 @@
+{
+  "id": "accounts",
+  "version": "1.4.1",
+  "coreRange": ">=1.4.0",
+  "defaultInstalled": false,
+  "displayName": { "zh-CN": "多账号切换", "en": "Multi-Account Switcher" },
+  "serverEntry": "./service.mjs",
+  "settingsSchema": "./settings.mjs",
+  "clientHelpers": ["account-helpers.mjs"],
+  "clientScripts": []
+}

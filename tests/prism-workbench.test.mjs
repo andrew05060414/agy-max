@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { toZhTw } from '../lib/zh-tw.mjs';
 
-const source = readFileSync(new URL('../lib/prism-workbench.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../packages/chat-flow/prism-workbench.js', import.meta.url), 'utf8');
 
 // Lightweight, deterministic Mock DOM with full CSS selector & event bubbling support
 function createMockDom() {
@@ -564,13 +564,16 @@ test('Effort Slider mounts star ticks, auto-yields to .ces-slider, renders Orche
   assert.equal(slider.querySelectorAll('.agy-effort-tick').length, 4);
   assert.equal(slider.querySelector('[data-testid="agy-effort-tick-low"]').style.left, 'calc(12px + (100% - 24px) * 0.0000)');
 
-  // Click XHigh star tick -> clicks native button & persists to localStorage
+  // Click XHigh stop -> clicks native button & glides smoothly (never sets data-dragging on click) & persists to localStorage
   const xhighTick = slider.querySelector('[data-testid="agy-effort-tick-xhigh"]');
   assert.equal(xhighTick.style.left, 'calc(12px + (100% - 24px) * 1.0000)');
   const wbStyle = document.querySelector('style[data-agy-workbench-style="1"]')?.textContent || '';
-  assert.ok(wbStyle.includes('.agy-effort-tick:first-child{transform:translateX(max(-50%,-16px))}'));
-  assert.ok(wbStyle.includes('.agy-effort-tick:last-child{transform:translateX(min(-50%,calc(16px - 100%)))}'));
+  assert.ok(wbStyle.includes('transition:left 220ms cubic-bezier(.22,1,.36,1)'));
+  assert.ok(wbStyle.includes('transition:width 220ms cubic-bezier(.22,1,.36,1)'));
+  assert.equal(slider.hasAttribute('data-dragging'), false);
   xhighTick.click();
+  assert.equal(slider.hasAttribute('data-dragging'), false);
+  assert.equal(slider.style.getPropertyValue?.('--agy-knob-x') || slider.getAttribute('data-ratio'), '1.0000');
   assert.equal(effortBtns.xhigh.clickedCount, 1);
   assert.equal(effortBtns.xhigh.getAttribute('aria-selected'), 'true');
   assert.deepEqual(JSON.parse(localStorage.getItem('agy.effortMemory.v1')), { 'gemini-4-carbon': 'xhigh' });
@@ -700,42 +703,74 @@ test('Effort Slider reads real Antigravity React Fiber context without DOM effor
   panel.appendChild(usageFooter);
   document.body.appendChild(panel);
 
-  const wb = dom.createWorkbench({ options: () => ({ enabled: true, effortSlider: true, effortMemory: true }) });
+  // Create trigger pill to verify Codex 3-state trigger morph (idle -> 选择推理强度 -> model + effort)
+  const trigger = document.createElement('button');
+  trigger.setAttribute('data-testid', 'model-selector-trigger');
+  trigger.setAttribute('aria-expanded', 'true');
+  const outerSpan = document.createElement('span');
+  outerSpan.appendChild(document.createTextNode('Gemini 4 Neon'));
+  const triggerEffSpan = document.createElement('span');
+  triggerEffSpan.textContent = ' High';
+  outerSpan.appendChild(triggerEffSpan);
+  trigger.appendChild(outerSpan);
+  document.body.appendChild(trigger);
 
+  const wb = dom.createWorkbench({ options: () => ({ enabled: true, language: 'zh-CN', effortSlider: true, effortMemory: true }) });
+
+  // Stage 1 (Codex compact reasoning card): opens in 'effort' stage, trigger shows 选择推理强度
   const slider = panel.querySelector('[data-testid="agy-effort-slider"]');
   assert.ok(slider, 'Fiber-backed effort slider should mount even when no DOM effort-option buttons exist');
+  assert.equal(panel.getAttribute('data-agy-codex-stage'), 'effort');
+  assert.equal(trigger.getAttribute('data-agy-codex-open'), 'effort');
+  assert.equal(trigger.getAttribute('data-agy-effort-prompt'), '选择推理强度');
   assert.equal(document.documentElement.getAttribute('data-agy-effort-slider-ready'), '1');
-  assert.equal(slider.getAttribute('data-brand'), 'codex');
+  assert.equal(slider.querySelector('.agy-codex-model-name')?.textContent, 'Gemini 4 Neon');
+  assert.equal(slider.querySelector('.agy-effort-val')?.textContent, '高');
   assert.equal(slider.querySelectorAll('.agy-effort-tick').length, 4);
-  // Placed right after listWrapper (before usageFooter)
-  assert.equal(panel.children[panel.children.length - 1], usageFooter);
 
-  // Click Extra High -> commits via Fiber with keepOpen=true, enables max glow, updates row & memory
-  slider.querySelector('[data-testid="agy-effort-tick-xhigh"]').click();
+  // Track click (pointerdown + pointerup without >4px move) keeps transition enabled (no data-dragging jump!)
+  const track = slider.querySelector('[role="slider"]');
+  track.dispatchEvent({ type: 'pointerdown', clientX: 280, pointerId: 1, bubbles: true });
+  assert.equal(slider.hasAttribute('data-dragging'), false, 'pointerdown alone must NOT disable smooth transition');
+  track.dispatchEvent({ type: 'pointerup', clientX: 280, pointerId: 1, bubbles: true });
+  assert.equal(slider.hasAttribute('data-dragging'), false);
   assert.equal(commitCalls.length, 1);
   assert.deepEqual(commitCalls[0], {
     label: 'Gemini 4 Neon (Extra High)',
     conversationId: 'conv-fiber-1',
     keepOpen: true
   });
-  assert.equal(slider.getAttribute('data-max'), 'true');
-  assert.equal(neonRow.effSpan.textContent, 'Extra High');
+  assert.equal(slider.querySelector('.agy-effort-val')?.textContent, '极高');
+  assert.equal(triggerEffSpan.getAttribute('data-agy-effort-display'), ' 极高');
   assert.equal(JSON.parse(localStorage.getItem('agy.effortMemory.v1'))['gemini 4 neon'], 'xhigh');
 
-  // Click Claude row -> commits directly with keepOpen=true and switches slider theme to claude
+  // Click top "Gemini 4 Neon >" header button -> transitions into Stage 2 ('models' list: 选择模型)
+  slider.querySelector('[data-testid="agy-effort-open-models"]').click();
+  assert.equal(panel.getAttribute('data-agy-codex-stage'), 'models');
+  assert.equal(trigger.getAttribute('data-agy-codex-open'), 'models');
+  assert.equal(trigger.hasAttribute('data-agy-effort-prompt'), false);
+
+  // Click Claude row in Stage 2 ('models') -> commits with keepOpen=false (closes menu like Codex)
   claudeRow.row.click();
   assert.equal(commitCalls.length, 2);
   assert.equal(commitCalls[1].label, 'Claude Opus 5.5 (Medium)');
-  assert.equal(commitCalls[1].keepOpen, true);
-  const claudeSlider = panel.querySelector('[data-testid="agy-effort-slider"]');
-  assert.equal(claudeSlider.getAttribute('data-brand'), 'claude');
-  assert.equal(claudeSlider.querySelectorAll('.agy-effort-tick').length, 3);
+  assert.equal(commitCalls[1].keepOpen, false);
 
-  // Click Neon row again -> restores remembered Extra High!
+  // Reopen panel -> starts fresh in Stage 1 ('effort') for Claude Opus 5.5 (3 stops), then switch back to Neon
+  panel.remove();
+  wb.sync();
+  assert.equal(document.documentElement.hasAttribute('data-agy-effort-slider-ready'), false);
+  assert.equal(trigger.hasAttribute('data-agy-codex-open'), false);
+
+  document.body.appendChild(panel);
+  wb.sync();
+  const reopenedSlider = panel.querySelector('[data-testid="agy-effort-slider"]');
+  assert.equal(reopenedSlider.querySelector('.agy-codex-model-name')?.textContent, 'Claude Opus 5.5');
+  assert.equal(reopenedSlider.querySelectorAll('.agy-effort-tick').length, 3);
+  reopenedSlider.querySelector('[data-testid="agy-effort-open-models"]').click();
   neonRow.row.click();
   assert.equal(commitCalls[commitCalls.length - 1].label, 'Gemini 4 Neon (Extra High)');
 
-  // Closing the panel clears data-agy-effort-slider-ready immediately
   panel.remove();
   wb.sync();
   assert.equal(document.documentElement.hasAttribute('data-agy-effort-slider-ready'), false);

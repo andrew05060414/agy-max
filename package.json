@@ -12,11 +12,12 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test tests/*.test.mjs packages/*/*.test.mjs",
     "security:check": "node scripts/security-check.mjs",
     "install:local": "node scripts/install.mjs",
     "preview:native": "node scripts/native-preview.mjs",
     "build:calendar": "node scripts/build-calendar.mjs",
+    "build:seeds": "node scripts/build-seeds.mjs",
     "uninstall:local": "node scripts/uninstall.mjs",
     "build:release": "node scripts/build-release.mjs",
     "build:site": "node scripts/build-site.mjs"

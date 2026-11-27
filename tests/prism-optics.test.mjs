@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { toZhTw } from '../lib/zh-tw.mjs';
 
-const opticsSource = readFileSync(new URL('../lib/prism-optics.js', import.meta.url), 'utf8');
+const opticsSource = readFileSync(new URL('../packages/optics/prism-optics.js', import.meta.url), 'utf8');
 
 function splitTopLevelCommas(sel) {
   const parts = [];

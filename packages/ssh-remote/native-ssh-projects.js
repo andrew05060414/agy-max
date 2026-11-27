@@ -276,7 +276,7 @@
             badge.innerHTML = `${CLOUD_SSH_SVG_HTML}<span class="agy-ssh-sidebar-dot"></span>`;
             iconSlot.appendChild(badge);
           }
-          badge.title = `${proj.host?.name || proj.hostId}${proj.remoteDir ? ` · ${proj.remoteDir}` : ''} (${statusLabel(st, env.uiText)})`;
+          badge.title = `${proj.host?.name || proj.hostId}${proj.remoteDir ? ` | ${proj.remoteDir}` : ''} (${statusLabel(st, env.uiText)})`;
           const dot = badge.querySelector('.agy-ssh-sidebar-dot');
           if (dot) dot.style.background = dotColor;
         }
@@ -533,7 +533,7 @@
           await refreshData();
           env.notify?.({
             title: uiText(`已创建 SSH 项目「${proj.name}」`, `Created SSH project "${proj.name}"`),
-            message: `${proj.host?.name || finalHostId}${proj.remoteDir ? ` · ${proj.remoteDir}` : ''}`
+            message: `${proj.host?.name || finalHostId}${proj.remoteDir ? ` | ${proj.remoteDir}` : ''}`
           });
           onClose();
         } catch (err) {
@@ -683,7 +683,7 @@
                 h('button', { type: 'button', className: 'agy-ssh-btn', disabled: testing, onClick: runTest }, testing ? uiText('测通中...', 'Testing...') : uiText('测试连接', 'Test connection')),
                 isEdit && selectedHostId && h('button', { type: 'button', className: 'agy-ssh-btn', disabled: testing, onClick: handleInstallKey }, uiText('一键配免密公钥', 'Install SSH Key')),
                 testResult?.ok && h('span', { className: 'agy-ssh-pill', style: { color: '#16a34a', borderColor: '#22c55e' } },
-                  `✓ ${testResult.os} · ${testResult.latencyMs}ms · ${testResult.homeDir}`
+                  `✓ ${testResult.os} | ${testResult.latencyMs}ms | ${testResult.homeDir}`
                 )
               )
             ),
@@ -996,7 +996,7 @@
             className: 'agy-ssh-bar-btn',
             onClick: () => {
               void env.request('sshProject.testHost', { hostId: activeProj.hostId })
-                .then(r => { env.notify?.({ title: uiText('SSH 已连接', 'SSH connected'), message: `${r.os} · ${r.latencyMs}ms` }); return refreshData(); })
+                .then(r => { env.notify?.({ title: uiText('SSH 已连接', 'SSH connected'), message: `${r.os} | ${r.latencyMs}ms` }); return refreshData(); })
                 .catch(err => env.notify?.({ title: uiText('重连失败', 'Reconnect failed'), message: err?.message || '' }));
             }
           }, uiText('重连', 'Reconnect')),

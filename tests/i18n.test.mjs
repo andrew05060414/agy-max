@@ -6,7 +6,7 @@ import{createSettingsStore}from'../lib/settings.mjs';
 test('native settings translations preserve product names and English input terminology',()=>{
  const document={nodeType:9,createTreeWalker:()=>({nextNode:()=>null}),querySelectorAll:()=>[]};
  const context=vm.createContext({document,NodeFilter:{SHOW_TEXT:4},MutationObserver:class{observe(){} disconnect(){}}});
- vm.runInContext(readFileSync('lib/native-i18n.js','utf8'),context);const t=context.__agyI18n.t;
+ vm.runInContext(readFileSync('packages/i18n/native-i18n.js','utf8'),context);const t=context.__agyI18n.t;
  assert.equal(t('Interface Layout','zh-CN'),'界面布局');assert.equal(t('Queued Messages','zh-CN'),'后续消息');assert.equal(t('输入','en'),'Input');
  assert.equal(t('Google AI Ultra','zh-CN'),'Google AI Ultra');assert.equal(t('Google Sans','zh-CN'),'Google Sans');assert.equal(t('Ctrl','zh-CN'),'Ctrl');
  assert.equal(t('Your Plan: Google AI Ultra','zh-CN'),'当前套餐：Google AI Ultra');
@@ -34,7 +34,7 @@ test('native settings translations preserve product names and English input term
 test('Traditional Chinese (zh-TW) uses Taiwan IT terminology, converts UI strings cleanly, and persists in settings',()=>{
   const document={nodeType:9,createTreeWalker:()=>({nextNode:()=>null}),querySelectorAll:()=>[]};
   const context=vm.createContext({document,NodeFilter:{SHOW_TEXT:4},MutationObserver:class{observe(){} disconnect(){}},__agyToZhTw:toZhTw});
-  vm.runInContext(readFileSync('lib/native-i18n.js','utf8'),context);
+  vm.runInContext(readFileSync('packages/i18n/native-i18n.js','utf8'),context);
   const t=context.__agyI18n.t;
   assert.equal(t('Settings','zh-TW'),'設定');
   assert.equal(t('Context window','zh-TW'),'上下文視窗');
@@ -81,7 +81,7 @@ test('Traditional Chinese (zh-TW) uses Taiwan IT terminology, converts UI string
   }finally{rmSync(dir,{recursive:true,force:true});}
   // Ensure no common simplified-only glyphs remain across UI source files after toZhTw
   const simplifiedOnly=/[万与个为义于产仅从仓们价优会传体余侧关内写准减凑凭击划则刚创删务动区协单占却历压参发变号后听启周响唤围图圆场声处备头夹实审对导将尝尽层带帮并广库应开异强归当录径忆态总战执扩扬抢护报担拦择挂换据数断无旧时昵显暂机权条来栏树样档检汇没洁浅测浏滚满点热状独环现电监盘码确碍离积称稳筛签简类紧级线组细织终结给络绝统继续缓编缩网联脑范营补装观规视览触计订认让议记许设访证识诊试话询该详语误说请读调败账费资转轮软载较辅辑输边过运这进远违连迟适选遥邮采钟钥钮链销错键长闭问闲间阅队阶际险随隐静页顶项顺顿预频题额风馈驻验骤麦标彻]/;
-  for(const file of ['lib/native-i18n.js','lib/native-panels.js','lib/native-ui.js','lib/aux-file-tree.js','lib/sidecar-ui.mjs']){
+  for(const file of ['packages/i18n/native-i18n.js','lib/native-panels.js','lib/native-ui.js','packages/workspace-nav/aux-file-tree.js','lib/sidecar-ui.mjs']){
     const converted=toZhTw(readFileSync(file,'utf8')).replace(/简体中文|批准/g,'');
     const leftover=converted.match(simplifiedOnly);
     assert.equal(leftover,null,`Unexpected simplified glyph ${leftover?.[0]} in ${file}`);
@@ -91,7 +91,7 @@ test('Traditional Chinese (zh-TW) uses Taiwan IT terminology, converts UI string
 test('Swarm UI strings translate cleanly in zh-CN and zh-TW without middle dots and protect post bodies', () => {
   const document = { nodeType: 9, createTreeWalker: () => ({ nextNode: () => null }), querySelectorAll: () => [] };
   const context = vm.createContext({ document, NodeFilter: { SHOW_TEXT: 4 }, MutationObserver: class { observe() {} disconnect() {} }, __agyToZhTw: toZhTw });
-  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  vm.runInContext(readFileSync('packages/i18n/native-i18n.js', 'utf8'), context);
   const t = context.__agyI18n.t;
   assert.equal(t('Board', 'zh-CN'), '讨论板');
   assert.equal(t('Board', 'zh-TW'), '討論板');
@@ -161,7 +161,7 @@ test('Swarm UI strings translate cleanly in zh-CN and zh-TW without middle dots 
   assert.equal(t('Archived Only', 'zh-TW'), '僅顯示已歸檔');
   assert.equal(t('Restore Conversation', 'zh-CN'), '还原会话');
   assert.equal(t('Restore Conversation', 'zh-TW'), '還原會話');
-  const i18nSrc = readFileSync('lib/native-i18n.js', 'utf8');
+  const i18nSrc = readFileSync('packages/i18n/native-i18n.js', 'utf8');
   assert.ok(i18nSrc.includes('.post-body') && i18nSrc.includes('#ov-frame'));
 });
 
@@ -223,7 +223,7 @@ test('native-i18n preserves dynamic title/placeholder updates and handles ja/yue
     },
     __agyToZhTw: toZhTw
   });
-  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  vm.runInContext(readFileSync('packages/i18n/native-i18n.js', 'utf8'), context);
   const { t } = context.__agyI18n;
   const loc = context.__agyLocalization;
 
@@ -280,7 +280,7 @@ test('native-i18n preserves dynamic title/placeholder updates and handles ja/yue
       MutationObserver: class { observe() {} disconnect() {} },
       __agyToZhTw: toZhTw
     });
-    vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), freshCtx);
+    vm.runInContext(readFileSync('packages/i18n/native-i18n.js', 'utf8'), freshCtx);
     assert.equal(freshCtx.__agyLocalization.language, savedLang);
     freshCtx.__agyLocalization.dispose();
   }
@@ -291,7 +291,7 @@ test('localizer leaves code editors, diff viewers and terminals untranslated', (
   const nodes = [node('Settings', ['.monaco-editor']), node('Settings', ['.monaco-diff-editor']), node('Settings', ['[data-testid*="diff"]']), node('Settings', ['.xterm']), node('Settings', ['.view-lines']), node('Settings')];
   const document = { nodeType: 9, body: { nodeType: 1, getAttribute: () => null, closest: () => null, querySelectorAll: () => [] }, createTreeWalker: () => { let i = 0; return { nextNode: () => nodes[i++] || null }; }, querySelectorAll: () => [] };
   const context = vm.createContext({ document, NodeFilter: { SHOW_TEXT: 4 }, MutationObserver: class { observe() {} disconnect() {} }, __agyToZhTw: toZhTw });
-  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  vm.runInContext(readFileSync('packages/i18n/native-i18n.js', 'utf8'), context);
   const loc = context.__agyI18n.localizer();
   loc.apply('zh-CN', true);
   assert.deepEqual(nodes.map(n => n.nodeValue), ['Settings', 'Settings', 'Settings', 'Settings', 'Settings', '设置']);
@@ -364,7 +364,7 @@ test('marketplace dynamic translation batches descriptions on /customizations, p
     MutationObserver: class { observe() {} disconnect() {} },
     __agyToZhTw: toZhTw
   });
-  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  vm.runInContext(readFileSync('packages/i18n/native-i18n.js', 'utf8'), context);
   const loc = context.__agyLocalization;
 
   // Static dictionary items translated immediately in 0ms
@@ -496,7 +496,7 @@ test('marketplace translation works inside data-testid="sidebar-split" > .agy-sh
     MutationObserver: class { observe() {} disconnect() {} },
     __agyToZhTw: toZhTw
   });
-  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  vm.runInContext(readFileSync('packages/i18n/native-i18n.js', 'utf8'), context);
   const loc = context.__agyLocalization;
 
   assert.equal(seeMoreShelf.nodeValue, '查看更多 开发者工具');
@@ -584,7 +584,7 @@ test('plugin detail translates suggested prompt buttons, skill row descriptions,
     MutationObserver: class { observe() {} disconnect() {} },
     __agyToZhTw: toZhTw
   });
-  vm.runInContext(readFileSync('lib/native-i18n.js', 'utf8'), context);
+  vm.runInContext(readFileSync('packages/i18n/native-i18n.js', 'utf8'), context);
   const loc = context.__agyLocalization;
 
   assert.ok(stdDisclaimer.nodeValue.startsWith('Google 不控制第三方开发者工具的可用性或功能。'));

@@ -280,53 +280,71 @@
       styleEl.setAttribute?.('data-agy-workbench-style', '1');
       styleEl.id = styleId;
       styleEl.textContent = `
-        /* Effort Slider (Codex Capsule) & Orchestrator Prism Bar */
-        @keyframes agy-effort-sweep{0%{transform:translateX(-120%)}100%{transform:translateX(220%)}}
-        @keyframes agy-effort-star{0%{transform:translate3d(0,0,0);opacity:0}12%,88%{opacity:.92}100%{transform:translate3d(-110%,0,0);opacity:0}}
-        @keyframes agy-effort-pop{0%{transform:translateY(3px) scale(.96);opacity:.45}100%{transform:none;opacity:1}}
-        .agy-effort-sep{height:1px;margin:4px 0 6px;background:var(--border)}
-        .agy-effort-bar{margin:2px 6px 6px;padding:7px 9px 8px;border-radius:10px;border:1px solid color-mix(in srgb,var(--border) 88%,transparent);background:color-mix(in srgb,var(--secondary) 36%,var(--card));display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--foreground);user-select:none;transition:border-color 180ms ease,box-shadow 180ms ease,background-color 180ms ease}
-        .agy-effort-bar[data-max="true"]{border-color:color-mix(in srgb,#8b5cf6 46%,var(--border));box-shadow:0 0 16px -6px rgba(139,92,246,.45);background:color-mix(in srgb,#8b5cf6 7%,var(--card))}
-        .agy-effort-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:18px;padding:0 1px}
-        .agy-effort-title{font-weight:500;font-size:12px;color:var(--muted-foreground)}
-        .agy-effort-val{font-size:12px;font-weight:600;color:var(--agy-effort-color,var(--primary));transition:color 140ms ease}
-        .agy-effort-val[data-pop="1"]{animation:agy-effort-pop 200ms cubic-bezier(.2,.85,.25,1)}
-        .agy-effort-track{position:relative;width:100%;height:22px;margin:2px 0;border-radius:999px;background:color-mix(in srgb,var(--foreground) 9%,transparent);box-shadow:inset 0 1px 2px rgba(0,0,0,.16),inset 0 0 0 1px color-mix(in srgb,var(--foreground) 7%,transparent);cursor:pointer;touch-action:none;outline:none;transition:box-shadow 180ms ease,opacity 160ms ease}
-        .agy-effort-track:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb,var(--agy-effort-color,var(--primary)) 45%,transparent),inset 0 1px 2px rgba(0,0,0,.16)}
-        .agy-effort-bar[data-max="true"] .agy-effort-track{box-shadow:0 0 14px -2px rgba(168,85,247,.5),inset 0 1px 2px rgba(0,0,0,.22)}
-        .agy-effort-bar[data-locked="true"] .agy-effort-track{opacity:.48;cursor:not-allowed;filter:saturate(.3)}
-        .agy-effort-fill{position:absolute;top:0;left:0;bottom:0;width:var(--agy-fill,12px);border-radius:999px 0 0 999px;background:var(--agy-effort-bg,linear-gradient(90deg,#3b82f6,#6366f1));overflow:hidden;pointer-events:none;transition:width 200ms cubic-bezier(.22,1.15,.36,1),background 180ms ease}
+        /* Effort Slider (1:1 Codex Two-Stage Popover & Smooth Glide Track) */
+        @keyframes agy-effort-pop{0%{transform:translateY(2px);opacity:.55}100%{transform:none;opacity:1}}
+        .agy-effort-sep{display:none!important}
+        .agy-effort-bar{margin:0;padding:2px 2px 4px;border:0;border-radius:14px;background:transparent;display:flex;flex-direction:column;align-items:stretch;gap:10px;font-size:13px;color:var(--foreground);user-select:none}
+        .agy-codex-model-switch{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;align-self:center;min-width:128px;max-width:100%;margin:0 auto;padding:5px 14px 6px;border:0;border-radius:10px;background:color-mix(in srgb,var(--foreground) 4.5%,transparent);color:var(--foreground);font:inherit;cursor:pointer;outline:none;transition:background-color 140ms ease,transform 120ms ease}
+        .agy-codex-model-switch:hover,.agy-codex-model-switch:focus-visible{background:color-mix(in srgb,var(--foreground) 7.5%,transparent)}
+        .agy-codex-model-switch:active{transform:scale(.98)}
+        .agy-effort-val{font-size:14px;line-height:1.28;font-weight:600;color:#0066cc;transition:color 140ms ease}
+        .dark .agy-effort-val{color:#4da3ff}
+        .agy-effort-val[data-pop="1"]{animation:agy-effort-pop 180ms cubic-bezier(.22,1,.36,1)}
+        .agy-codex-model-sub{display:inline-flex;align-items:center;justify-content:center;gap:2px;max-width:196px;font-size:12px;line-height:1.32;font-weight:400;color:color-mix(in srgb,var(--foreground) 58%,transparent)}
+        .agy-codex-model-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:176px}
+        .agy-codex-model-chev{width:11px;height:11px;flex-shrink:0;opacity:.75}
+        .agy-effort-track{position:relative;width:100%;height:24px;margin:0;border-radius:999px;background:color-mix(in srgb,var(--foreground) 8.5%,transparent);cursor:pointer;touch-action:none;outline:none;transition:opacity 160ms ease,box-shadow 160ms ease}
+        .dark .agy-effort-track{background:rgba(255,255,255,.12)}
+        .agy-effort-track:focus-visible{box-shadow:0 0 0 2px rgba(0,113,227,.38)}
+        .agy-effort-bar[data-locked="true"] .agy-effort-track{opacity:.48;cursor:not-allowed}
+        .agy-effort-fill{position:absolute;top:0;left:0;bottom:0;width:var(--agy-fill-w,24px);border-radius:999px;background:#0071e3;pointer-events:none;will-change:width;transition:width 220ms cubic-bezier(.22,1,.36,1),background-color 160ms ease}
+        .dark .agy-effort-fill{background:#0a84ff}
         .agy-effort-bar[data-dragging="1"] .agy-effort-fill,.agy-effort-bar[data-dragging="1"] .agy-effort-knob{transition:none!important}
-        .agy-effort-bar[data-dragging="1"] .agy-effort-knob{transform:scale(1.08)}
-        .agy-effort-sweep{position:absolute;inset:0;opacity:0;background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.32) 50%,transparent 80%);pointer-events:none;transition:opacity 180ms ease}
-        .agy-effort-bar[data-max="true"] .agy-effort-sweep{opacity:1;animation:agy-effort-sweep 2.4s linear infinite}
-        .agy-effort-stars{position:absolute;inset:0;overflow:hidden;opacity:0;pointer-events:none;transition:opacity 180ms ease}
-        .agy-effort-bar[data-max="true"] .agy-effort-stars{opacity:1}
-        .agy-effort-bar[data-brand="claude"] .agy-effort-stars{display:none}
-        .agy-effort-sdot{position:absolute;right:4px;width:2.5px;height:2.5px;border-radius:50%;background:#f5f3ff;box-shadow:0 0 5px rgba(216,180,254,.95);animation:agy-effort-star linear infinite}
+        .agy-effort-bar[data-dragging="1"] .agy-effort-knob{transform:scale(1.06)}
         .agy-effort-dots{position:absolute;inset:0;pointer-events:none}
-        .agy-effort-dot{position:absolute;top:50%;width:3.5px;height:3.5px;margin:-1.75px 0 0 -1.75px;border-radius:50%;background:color-mix(in srgb,var(--foreground) 24%,transparent);transition:background-color 140ms ease}
-        .agy-effort-dot[data-on="1"]{background:rgba(255,255,255,.68)}
-        .agy-effort-knob{position:absolute;top:50%;left:var(--agy-fill,12px);width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.36),0 0 0 .5px rgba(0,0,0,.08);pointer-events:none;display:flex;align-items:center;justify-content:center;transition:left 200ms cubic-bezier(.22,1.15,.36,1),transform 140ms cubic-bezier(.22,1.15,.36,1)}
-        .agy-effort-bar[data-brand="claude"] .agy-effort-knob{width:20px;height:24px;margin:-12px 0 0 -10px;border-radius:7px}
-        .agy-effort-knob-notch{display:none;width:2px;height:10px;border-radius:999px;background:rgba(0,0,0,.26)}
-        .agy-effort-bar[data-brand="claude"] .agy-effort-knob-notch{display:block}
-        .agy-effort-ticks{position:relative;height:18px;margin-top:0}
-        .agy-effort-tick{position:absolute;top:0;transform:translateX(-50%);display:inline-flex;align-items:center;justify-content:center;gap:2px;padding:2px 4px;border:0;border-radius:6px;background:transparent;color:var(--muted-foreground);cursor:pointer;font:inherit;font-size:10.5px;line-height:14px;white-space:nowrap;transition:color 120ms ease,background-color 120ms ease}
-        .agy-effort-tick:first-child{transform:translateX(max(-50%,-16px))}
-        .agy-effort-tick:last-child{transform:translateX(min(-50%,calc(16px - 100%)))}
-        .agy-effort-tick:hover,.agy-effort-tick:focus-visible{color:var(--foreground);background:color-mix(in srgb,var(--foreground) 6%,transparent);outline:none}
-        .agy-effort-tick[aria-pressed="true"]{color:var(--agy-effort-color,var(--primary));font-weight:600}
-        .agy-effort-prism{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:9px;background:linear-gradient(112deg,color-mix(in srgb,var(--primary) 16%,var(--card)),color-mix(in srgb,#a58af8 16%,var(--card)),color-mix(in srgb,#38bdf8 14%,var(--card)));border:1px solid color-mix(in srgb,var(--primary) 30%,var(--border))}
-        .agy-effort-prism-facets{display:flex;align-items:center;gap:3px;flex-shrink:0}
-        .agy-effort-facet{width:10px;height:14px;clip-path:polygon(50% 0%,100% 38%,78% 100%,22% 100%,0% 38%);background:var(--primary);opacity:.85}
-        .agy-effort-facet:nth-child(2){background:#a58af8;opacity:.95}
-        .agy-effort-facet:nth-child(3){background:#38bdf8;opacity:.85}
+        .agy-effort-dot{position:absolute;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:color-mix(in srgb,var(--foreground) 28%,transparent);transition:background-color 160ms ease}
+        .dark .agy-effort-dot{background:rgba(255,255,255,.28)}
+        .agy-effort-dot[data-on="1"]{background:rgba(255,255,255,.65)}
+        .agy-effort-knob{position:absolute;top:50%;left:var(--agy-knob-x,12px);width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:#ffffff;box-shadow:0 1px 4px rgba(0,0,0,.24),0 0 0 .5px rgba(0,0,0,.08);pointer-events:none;will-change:left;transition:left 220ms cubic-bezier(.22,1,.36,1),transform 140ms cubic-bezier(.22,1,.36,1)}
+        .agy-effort-ticks{position:absolute;inset:0;pointer-events:none}
+        .agy-effort-tick{position:absolute;top:0;bottom:0;width:28px;transform:translateX(-50%);padding:0;border:0;border-radius:999px;background:transparent;color:transparent;font-size:0;cursor:pointer;pointer-events:auto;outline:none}
+        .agy-effort-tick:first-child{transform:translateX(-12px)}
+        .agy-effort-tick:last-child{transform:translateX(calc(12px - 100%))}
+        .agy-effort-prism{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;border-radius:10px;background:color-mix(in srgb,var(--foreground) 4.5%,transparent)}
         html[data-agy-effort-slider-ready="1"] [role="menu"]:has([data-testid="model-selector-effort-option"]):not(:has([data-testid="model-selector-panel"])),
         html[data-agy-effort-slider-ready="1"] div[role="presentation"]:has(>[role="menu"] [data-testid="model-selector-effort-option"]):not(:has([data-testid="model-selector-panel"])){display:none!important;visibility:hidden!important;pointer-events:none!important;opacity:0!important}
-        html[data-agy-effort-slider-ready="1"] [role="menuitem"]:has([data-testid="model-selector-effort-group"])>span.shrink-0:last-child{display:none!important}
-        html[data-agy-effort-slider-ready="1"] [role="menuitem"][data-agy-model-selected="true"]{background:color-mix(in srgb,var(--foreground) 8%,transparent);border-radius:8px}
-        @media (prefers-reduced-motion:reduce){.agy-effort-sweep,.agy-effort-sdot,.agy-effort-val[data-pop="1"]{animation:none!important}}
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"][data-agy-codex-stage="effort"] > :not([data-agy-effort-slider="1"]){display:none!important}
+        @layer theme {
+          html[data-agy-effort-slider-ready="1"] [data-agy-codex-popup="effort"],
+          html[data-agy-effort-slider-ready="1"] [role="menu"]:has([data-testid="model-selector-panel"][data-agy-codex-stage="effort"]),
+          html[data-agy-effort-slider-ready="1"] [role="dialog"]:has([data-testid="model-selector-panel"][data-agy-codex-stage="effort"]){min-width:228px!important;width:228px!important;max-width:248px!important;padding:10px 12px 12px!important;border-radius:18px!important;border:1px solid color-mix(in srgb,var(--foreground) 9%,transparent)!important;box-shadow:0 10px 30px rgba(0,0,0,.10),0 2px 8px rgba(0,0,0,.05)!important}
+          html[data-agy-effort-slider-ready="1"] [data-agy-codex-popup="models"],
+          html[data-agy-effort-slider-ready="1"] [role="menu"]:has([data-testid="model-selector-panel"][data-agy-codex-stage="models"]),
+          html[data-agy-effort-slider-ready="1"] [role="dialog"]:has([data-testid="model-selector-panel"][data-agy-codex-stage="models"]){min-width:256px!important;width:max-content!important;max-width:320px!important;padding:6px!important;border-radius:18px!important;border:1px solid color-mix(in srgb,var(--foreground) 9%,transparent)!important;box-shadow:0 10px 30px rgba(0,0,0,.10),0 2px 8px rgba(0,0,0,.05)!important}
+        }
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"][data-agy-codex-stage="models"] [data-agy-effort-slider="1"],
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"][data-agy-codex-stage="models"] [data-agy-effort-sep="1"],
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"][data-agy-codex-stage="models"] > [role="separator"],
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"][data-agy-codex-stage="models"] > div:nth-child(n+2):not([data-agy-effort-slider="1"]){display:none!important}
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-header"][data-agy-codex-header]{font-size:0!important;padding:6px 10px 6px!important}
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-header"][data-agy-codex-header]::after{content:attr(data-agy-codex-header);font-size:13px;font-weight:500;color:var(--muted-foreground)}
+        html[data-agy-effort-slider-ready="1"] [role="menuitem"]:has([data-testid="model-selector-effort-group"]) > span.shrink-0:last-child,
+        html[data-agy-effort-slider-ready="1"] [role="menuitem"] [data-testid="model-selector-effort-group"] + span{display:none!important}
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"] [role="menuitem"]{border-radius:10px!important;padding-block:7px!important;padding-inline:10px!important;background:transparent!important}
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"] [role="menuitem"]:hover,
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"] [role="menuitem"]:focus-visible,
+        html[data-agy-effort-slider-ready="1"] [data-testid="model-selector-panel"] [role="menuitem"][data-highlighted]{background:color-mix(in srgb,var(--foreground) 6%,transparent)!important}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"]{padding:0 10px!important;border-radius:999px!important;gap:4px!important;color:var(--foreground)!important;font-weight:500!important}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"] > .google-symbols:last-of-type,
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"] > [data-icon]:last-of-type,
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"] > svg:last-of-type{display:none!important}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"] span[data-agy-effort-display]{font-size:0!important;opacity:1!important;font-weight:400!important}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"] span[data-agy-effort-display]::after{content:attr(data-agy-effort-display);font-size:13px;font-weight:400;color:color-mix(in srgb,var(--foreground) 48%,transparent)}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"][data-agy-codex-open="effort"]{min-width:144px!important;padding:0 18px!important;justify-content:center!important;background:color-mix(in srgb,var(--foreground) 6.5%,transparent)!important}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"][data-agy-codex-open="effort"] > *{display:none!important}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"][data-agy-codex-open="effort"]::after{content:attr(data-agy-effort-prompt);font-size:13px;font-weight:400;color:color-mix(in srgb,var(--foreground) 54%,transparent);white-space:nowrap}
+        html[data-agy-codex-selector="1"] [data-testid="model-selector-trigger"][data-agy-codex-open="models"]{background:color-mix(in srgb,var(--foreground) 6.5%,transparent)!important}
+        @media (prefers-reduced-motion:reduce){.agy-effort-fill,.agy-effort-knob,.agy-effort-val[data-pop="1"]{transition:none!important;animation:none!important}}
 
         /* Thought Translator */
         [data-agy-thought-hidden="1"]{display:none!important}
@@ -551,17 +569,49 @@
       }
     }
 
+    const panelStageMap = new Map();
+
+    function clearPopupStageAttrs() {
+      for (const pop of document.querySelectorAll?.('[data-agy-codex-popup]') || []) {
+        pop.removeAttribute?.('data-agy-codex-popup');
+      }
+      for (const p of document.querySelectorAll?.('[data-agy-codex-stage]') || []) {
+        p.removeAttribute?.('data-agy-codex-stage');
+      }
+      panelStageMap.clear();
+    }
+
+    function setCodexSelectorAttr(active) {
+      const html = document?.documentElement;
+      if (!html) return;
+      if (active) {
+        if (html.getAttribute?.('data-agy-codex-selector') !== '1') {
+          html.setAttribute?.('data-agy-codex-selector', '1');
+        }
+      } else if (html.hasAttribute?.('data-agy-codex-selector')) {
+        html.removeAttribute?.('data-agy-codex-selector');
+      }
+    }
+
     function clearTriggerEffortTint() {
+      setCodexSelectorAttr(false);
       const triggers = document.querySelectorAll?.('[data-testid="model-selector-trigger"]') || [];
       for (const trBtn of triggers) {
-        for (const sp of trBtn.querySelectorAll?.('[data-agy-effort-tint="1"]') || []) {
+        trBtn.removeAttribute?.('data-agy-codex-open');
+        trBtn.removeAttribute?.('data-agy-effort-prompt');
+        for (const sp of trBtn.querySelectorAll?.('[data-agy-effort-tint="1"], [data-agy-effort-display]') || []) {
           if (sp.style) {
             sp.style.color = '';
             sp.style.fontWeight = '';
           }
           sp.removeAttribute?.('data-agy-effort-tint');
+          sp.removeAttribute?.('data-agy-effort-display');
         }
       }
+      for (const hdr of document.querySelectorAll?.('[data-testid="model-selector-header"][data-agy-codex-header]') || []) {
+        hdr.removeAttribute?.('data-agy-codex-header');
+      }
+      clearPopupStageAttrs();
     }
 
     function findActiveModelTrigger() {
@@ -570,16 +620,43 @@
         || null;
     }
 
-    function syncTriggerEffortTint(activeKey, isMax, isClaude) {
-      const trigger = findActiveModelTrigger();
-      if (!trigger || !activeKey || activeKey === 'fixed') return;
-      const spans = [...(trigger.querySelectorAll?.('span') || [])];
-      const effSpan = spans.find(sp => normalizeEffortKey(sp.textContent));
-      if (!effSpan || !effSpan.style) return;
-      const pal = effortVisualPalette(activeKey, isMax, isClaude);
-      effSpan.setAttribute?.('data-agy-effort-tint', '1');
-      effSpan.style.color = pal.color;
-      effSpan.style.fontWeight = isMax || activeKey === 'high' ? '600' : '';
+    function syncTriggerEffortTint(activeKey, _isMax, _isClaude, openStage = '') {
+      setCodexSelectorAttr(true);
+      const triggers = [...(document.querySelectorAll?.('[data-testid="model-selector-trigger"]') || [])];
+      const activeTrigger = findActiveModelTrigger();
+      for (const trBtn of triggers) {
+        const isCurrent = trBtn === activeTrigger;
+        const isOpen = isCurrent && Boolean(openStage);
+        if (isOpen) {
+          trBtn.setAttribute?.('data-agy-codex-open', openStage);
+          if (openStage === 'effort') {
+            trBtn.setAttribute?.('data-agy-effort-prompt', tr('选择推理强度', 'Choose reasoning effort'));
+          } else {
+            trBtn.removeAttribute?.('data-agy-effort-prompt');
+          }
+        } else {
+          trBtn.removeAttribute?.('data-agy-codex-open');
+          trBtn.removeAttribute?.('data-agy-effort-prompt');
+        }
+        const spans = [...(trBtn.querySelectorAll?.('span') || [])];
+        const effSpan = spans.find(sp => !sp.children?.length && normalizeEffortKey(sp.textContent));
+        if (effSpan) {
+          const detected = isCurrent && activeKey && activeKey !== 'fixed' ? activeKey : normalizeEffortKey(effSpan.textContent);
+          if (detected) {
+            const rawText = String(effSpan.textContent || '');
+            const suffixMatch = rawText.match(/\s+([^\s]+)$/);
+            const extraSuffix = suffixMatch && !normalizeEffortKey(suffixMatch[1]) && rawText.trim().includes(' ') ? '' : '';
+            const nextDisplay = ` ${effortLabel(detected)}${extraSuffix}`;
+            if (effSpan.getAttribute?.('data-agy-effort-display') !== nextDisplay) {
+              effSpan.setAttribute?.('data-agy-effort-display', nextDisplay);
+            }
+          }
+          if (effSpan.style) {
+            effSpan.style.color = '';
+            effSpan.style.fontWeight = '';
+          }
+        }
+      }
     }
 
     function readReactFiber(el) {
@@ -966,25 +1043,32 @@
       }
     }
 
-    function updateEffortSliderVisual(panel, effortList, activeKey, { isClaude = false, locked = false, pop = false } = {}) {
+    function updateEffortSliderVisual(panel, effortList, activeKey, { isClaude = false, locked = false, pop = false, modelLabel = '', openStage = '' } = {}) {
       const slider = panel.querySelector?.('[data-agy-effort-slider="1"]');
       if (!slider) return;
       const count = effortList.length;
       const activeIdx = Math.max(0, effortList.findIndex(item => item.key === activeKey));
       const key = effortList[activeIdx]?.key || activeKey || '';
       const ratio = count > 1 ? activeIdx / (count - 1) : 1;
+      const ratioKey = ratio.toFixed(4);
       const isMax = !locked && count >= 2 && activeIdx === count - 1 && (key === 'xhigh' || key === 'max' || key === 'high');
-      const pal = effortVisualPalette(key, isMax, isClaude);
-      const fillExpr = count > 1
-        ? `calc(12px + (100% - 24px) * ${ratio.toFixed(4)})`
-        : '100%';
+      const knobExpr = count > 1 ? `calc(12px + (100% - 24px) * ${ratioKey})` : 'calc(100% - 12px)';
+      const fillExpr = count > 1 ? `calc(24px + (100% - 24px) * ${ratioKey})` : '100%';
 
       slider.setAttribute?.('data-max', isMax ? 'true' : 'false');
       slider.setAttribute?.('data-brand', isClaude ? 'claude' : 'codex');
       slider.setAttribute?.('data-locked', locked ? 'true' : 'false');
-      slider.style?.setProperty?.('--agy-fill', fillExpr);
-      slider.style?.setProperty?.('--agy-effort-color', pal.color);
-      slider.style?.setProperty?.('--agy-effort-bg', pal.bg);
+      if (slider.getAttribute?.('data-ratio') !== ratioKey && !slider.hasAttribute?.('data-dragging')) {
+        slider.setAttribute?.('data-ratio', ratioKey);
+        slider.style?.setProperty?.('--agy-fill', knobExpr);
+        slider.style?.setProperty?.('--agy-knob-x', knobExpr);
+        slider.style?.setProperty?.('--agy-fill-w', fillExpr);
+      }
+
+      const modelNameEl = slider.querySelector?.('.agy-codex-model-name');
+      if (modelNameEl && modelLabel && modelNameEl.textContent !== modelLabel) {
+        modelNameEl.textContent = modelLabel;
+      }
 
       const valEl = slider.querySelector?.('.agy-effort-val');
       if (valEl) {
@@ -1014,7 +1098,7 @@
         const tKey = tick.getAttribute?.('data-effort');
         tick.setAttribute?.('aria-pressed', tKey === key ? 'true' : 'false');
       }
-      syncTriggerEffortTint(key, isMax, isClaude);
+      syncTriggerEffortTint(key, isMax, isClaude, openStage || panel.getAttribute?.('data-agy-codex-stage') || '');
     }
 
     function selectEffortOption(panel, profile, idx, userInitiated = true) {
@@ -1133,13 +1217,18 @@
       const handleFiberRowClick = event => {
         const action = resolveFiberRowAction(event.target);
         if (!action) return;
-        if (commitFiberOption(action.fiberCtx, action.targetOpt, { keepOpen: true })) {
+        const inCodexModelsStage = panel.getAttribute?.('data-agy-codex-stage') === 'models';
+        const keepOpen = !inCodexModelsStage;
+        if (commitFiberOption(action.fiberCtx, action.targetOpt, { keepOpen })) {
           event.preventDefault?.();
           event.stopImmediatePropagation?.();
           event.stopPropagation?.();
           pendingModelOverride = action.targetOpt;
           lastHostSelectedLabel = action.fiberCtx.selectedModel?.label || '';
           if (action.modelKey) appliedPanelModelMap.set(panel, action.modelKey);
+          if (!keepOpen) {
+            try { action.fiberCtx.setIsOpen?.(false); } catch {}
+          }
           syncEffortSlider();
         }
       };
@@ -1233,8 +1322,41 @@
         if (!opts.effortSlider || hasExternalSlider || (!profile.isOrch && profile.effortList.length === 0)) {
           existing?.remove?.();
           existingSep?.remove?.();
+          panel.removeAttribute?.('data-agy-codex-stage');
           continue;
         }
+
+        const canSlideEffort = !profile.locked && profile.effortList.length >= 2 && !(profile.isOrch && !profile.isOrchPlanner);
+        let stage = panelStageMap.get(panel);
+        if (!stage) {
+          stage = canSlideEffort ? 'effort' : 'models';
+          panelStageMap.set(panel, stage);
+        } else if (stage === 'effort' && !canSlideEffort) {
+          stage = 'models';
+          panelStageMap.set(panel, stage);
+        }
+        panel.setAttribute?.('data-agy-codex-stage', stage);
+        const popupWrap = panel.parentElement && panel.parentElement !== document.body && panel.parentElement !== document.documentElement
+          ? panel.parentElement
+          : null;
+        if (popupWrap) popupWrap.setAttribute?.('data-agy-codex-popup', stage);
+
+        const hdr = panel.querySelector?.('[data-testid="model-selector-header"]');
+        if (hdr) {
+          const rawHdr = String(hdr.textContent || '').trim();
+          if (rawHdr && !/best\s+of/i.test(rawHdr)) {
+            const wantHdr = tr('选择模型', 'Select model');
+            if (hdr.getAttribute?.('data-agy-codex-header') !== wantHdr) {
+              hdr.setAttribute?.('data-agy-codex-header', wantHdr);
+            }
+          } else {
+            hdr.removeAttribute?.('data-agy-codex-header');
+          }
+        }
+
+        const displayModelName = profile.isOrch
+          ? 'Orchestrator'
+          : (profile.baseName || profile.ctx?.selectedModel?.label || profile.modelKey || tr('选择模型', 'Select model'));
 
         const desiredMode = (profile.isOrch && !profile.isOrchPlanner) ? 'orchestrator' : 'slider';
         const signature = desiredMode === 'orchestrator'
@@ -1246,7 +1368,14 @@
         }
         if (existing && existing.getAttribute?.('data-mode') === desiredMode && existing.getAttribute?.('data-sig') === signature) {
           if (desiredMode === 'slider') {
-            updateEffortSliderVisual(panel, profile.effortList, activeKey, { isClaude: profile.isClaude, locked: profile.locked });
+            updateEffortSliderVisual(panel, profile.effortList, activeKey, {
+              isClaude: profile.isClaude,
+              locked: profile.locked,
+              modelLabel: displayModelName,
+              openStage: stage
+            });
+          } else {
+            syncTriggerEffortTint('', false, false, stage);
           }
           continue;
         }
@@ -1269,46 +1398,94 @@
           bar.addEventListener?.(evName, stopBubble);
         }
 
+        const openModelsStage = e => {
+          e?.preventDefault?.();
+          e?.stopPropagation?.();
+          panelStageMap.set(panel, 'models');
+          syncEffortSlider();
+        };
+
+        const chevronSvg = () => {
+          const ns = 'http://www.w3.org/2000/svg';
+          if (typeof document.createElementNS === 'function') {
+            const svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('viewBox', '0 0 12 12');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('aria-hidden', 'true');
+            svg.setAttribute('class', 'agy-codex-model-chev');
+            const p = document.createElementNS(ns, 'path');
+            p.setAttribute('d', 'M4.5 2.5L8 6L4.5 9.5');
+            p.setAttribute('stroke', 'currentColor');
+            p.setAttribute('stroke-width', '1.6');
+            p.setAttribute('stroke-linecap', 'round');
+            p.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(p);
+            return svg;
+          }
+          return el('span', { className: 'agy-codex-model-chev', 'aria-hidden': 'true' }, '>');
+        };
+
         if (desiredMode === 'orchestrator') {
-          const prism = el('div', { className: 'agy-effort-prism' },
-            el('div', { className: 'agy-effort-prism-facets', 'aria-hidden': 'true' },
-              el('span', { className: 'agy-effort-facet' }),
-              el('span', { className: 'agy-effort-facet' }),
-              el('span', { className: 'agy-effort-facet' })
-            ),
-            el('div', {},
-              el('div', { className: 'agy-effort-title', style: { color: 'var(--foreground)', fontWeight: '600' }, textContent: tr('编排光学棱镜', 'Orchestrator Prism') }),
-              el('div', { style: { fontSize: '10.5px', color: 'var(--muted-foreground)' }, textContent: tr('自动调度规划与执行思考深度', 'Adaptive planning and execution effort') })
+          const prism = el('button', {
+            type: 'button',
+            className: 'agy-codex-model-switch agy-effort-prism',
+            'data-testid': 'agy-effort-open-models',
+            onClick: openModelsStage
+          },
+            el('span', { className: 'agy-effort-val', textContent: 'Orchestrator' }),
+            el('span', { className: 'agy-codex-model-sub' },
+              el('span', { className: 'agy-codex-model-name', textContent: tr('选择模型', 'Select model') }),
+              chevronSvg()
             )
           );
           bar.appendChild(prism);
         } else {
-          const head = el('div', { className: 'agy-effort-head' },
-            el('span', { className: 'agy-effort-title', textContent: tr('推理等级', 'Reasoning Effort') }),
-            el('span', { className: 'agy-effort-val', textContent: effortLabel(activeKey) })
+          const modelSwitchBtn = el('button', {
+            type: 'button',
+            className: 'agy-codex-model-switch',
+            'data-testid': 'agy-effort-open-models',
+            'aria-label': tr('选择模型', 'Select model'),
+            onClick: openModelsStage
+          },
+            el('span', { className: 'agy-effort-val', textContent: effortLabel(activeKey) }),
+            el('span', { className: 'agy-codex-model-sub' },
+              el('span', { className: 'agy-codex-model-name', textContent: displayModelName }),
+              chevronSvg()
+            )
           );
-          const stars = el('div', { className: 'agy-effort-stars', 'aria-hidden': 'true' },
-            el('span', { className: 'agy-effort-sdot', style: { top: '28%', animationDuration: '2.6s', animationDelay: '0s' } }),
-            el('span', { className: 'agy-effort-sdot', style: { top: '54%', animationDuration: '2.1s', animationDelay: '-0.8s' } }),
-            el('span', { className: 'agy-effort-sdot', style: { top: '74%', animationDuration: '3.0s', animationDelay: '-1.5s' } }),
-            el('span', { className: 'agy-effort-sdot', style: { top: '40%', animationDuration: '2.4s', animationDelay: '-1.9s' } })
-          );
-          const fill = el('div', { className: 'agy-effort-fill' },
-            el('div', { className: 'agy-effort-sweep', 'aria-hidden': 'true' }),
-            stars
-          );
+
+          const fill = el('div', { className: 'agy-effort-fill' });
           const dots = el('div', { className: 'agy-effort-dots', 'aria-hidden': 'true' });
+          const ticksRow = el('div', { className: 'agy-effort-ticks' });
           const count = profile.effortList.length;
           for (let i = 0; i < count; i++) {
+            const item = profile.effortList[i];
+            const isSel = item.key === activeKey;
             const pct = count > 1 ? i / (count - 1) : 0.5;
+            const posExpr = count > 1 ? `calc(12px + (100% - 24px) * ${pct.toFixed(4)})` : '50%';
             dots.appendChild(el('span', {
               className: 'agy-effort-dot',
-              style: { left: count > 1 ? `calc(12px + (100% - 24px) * ${pct.toFixed(4)})` : '50%' }
+              style: { left: posExpr }
             }));
+            ticksRow.appendChild(el('button', {
+              type: 'button',
+              className: 'agy-effort-tick',
+              tabindex: '-1',
+              'data-effort': item.key,
+              'data-testid': `agy-effort-tick-${item.key}`,
+              'aria-label': effortLabel(item.key),
+              'aria-pressed': isSel ? 'true' : 'false',
+              style: { left: posExpr },
+              onClick: e => {
+                e.stopPropagation();
+                const fresh = resolvePanelProfile(panel);
+                if (fresh.locked) return;
+                const idx = fresh.effortList.findIndex(x => x.key === item.key);
+                if (idx >= 0) selectEffortOption(panel, fresh, idx, true);
+              }
+            }, effortLabel(item.key)));
           }
-          const knob = el('div', { className: 'agy-effort-knob', 'aria-hidden': 'true' },
-            el('span', { className: 'agy-effort-knob-notch' })
-          );
+          const knob = el('div', { className: 'agy-effort-knob', 'aria-hidden': 'true' });
           const track = el('div', {
             className: 'agy-effort-track',
             role: 'slider',
@@ -1317,51 +1494,80 @@
             'aria-valuemin': '0',
             'aria-valuemax': String(Math.max(0, count - 1)),
             'aria-valuenow': String(Math.max(0, profile.effortList.findIndex(i => i.key === activeKey)))
-          }, fill, dots, knob);
+          }, fill, dots, knob, ticksRow);
 
+          let pointerHeld = false;
           let dragging = false;
-          let lastPickedIdx = -1;
-          const pickFromPointer = (clientX, forceCommit = false) => {
-            const fresh = resolvePanelProfile(panel);
-            if (fresh.locked || fresh.effortList.length < 2) return;
+          let downX = 0;
+          const ratioAtClientX = clientX => {
             const rect = track.getBoundingClientRect?.();
-            if (!rect || !rect.width) return;
+            if (!rect || !rect.width) return null;
             const pad = Math.min(12, rect.width * 0.2);
             const span = Math.max(1, rect.width - pad * 2);
-            const ratio = Math.max(0, Math.min(1, (clientX - rect.left - pad) / span));
-            const idx = Math.round(ratio * (fresh.effortList.length - 1));
-            if (dragging) {
-              bar.style?.setProperty?.('--agy-fill', `calc(12px + (100% - 24px) * ${ratio.toFixed(4)})`);
-            }
-            if ((forceCommit || idx !== lastPickedIdx) && fresh.effortList[idx]) {
-              lastPickedIdx = idx;
-              selectEffortOption(panel, fresh, idx, true);
-            }
+            return Math.max(0, Math.min(1, (clientX - rect.left - pad) / span));
           };
 
           track.addEventListener?.('pointerdown', e => {
+            if (e.target?.closest?.('.agy-effort-tick')) return;
             const fresh = resolvePanelProfile(panel);
             if (fresh.locked || fresh.effortList.length < 2) return;
-            dragging = true;
-            lastPickedIdx = -1;
-            bar.setAttribute?.('data-dragging', '1');
-            track.setPointerCapture?.(e.pointerId);
-            pickFromPointer(e.clientX, true);
+            pointerHeld = true;
+            dragging = false;
+            downX = Number(e.clientX || 0);
           });
           track.addEventListener?.('pointermove', e => {
+            if (!pointerHeld) return;
+            const cx = Number(e.clientX || 0);
+            if (!dragging && Math.abs(cx - downX) > 4) {
+              dragging = true;
+              bar.setAttribute?.('data-dragging', '1');
+              if (e.pointerId != null) track.setPointerCapture?.(e.pointerId);
+            }
             if (!dragging) return;
-            pickFromPointer(e.clientX, false);
+            const fresh = resolvePanelProfile(panel);
+            if (fresh.locked || fresh.effortList.length < 2) return;
+            const ratio = ratioAtClientX(cx);
+            if (ratio == null) return;
+            const ratioStr = ratio.toFixed(4);
+            bar.removeAttribute?.('data-ratio');
+            bar.style?.setProperty?.('--agy-knob-x', `calc(12px + (100% - 24px) * ${ratioStr})`);
+            bar.style?.setProperty?.('--agy-fill-w', `calc(24px + (100% - 24px) * ${ratioStr})`);
+            const previewIdx = Math.round(ratio * (fresh.effortList.length - 1));
+            const previewItem = fresh.effortList[previewIdx];
+            const valNode = bar.querySelector?.('.agy-effort-val');
+            if (valNode && previewItem) valNode.textContent = effortLabel(previewItem.key);
+            const dotNodes = [...(bar.querySelectorAll?.('.agy-effort-dot') || [])];
+            for (let i = 0; i < dotNodes.length; i++) dotNodes[i].setAttribute?.('data-on', i <= previewIdx ? '1' : '0');
           });
-          const endDrag = () => {
-            if (!dragging) return;
+          const finishPointer = e => {
+            if (!pointerHeld) return;
+            pointerHeld = false;
+            const wasDragging = dragging;
             dragging = false;
-            lastPickedIdx = -1;
+            // Remove data-dragging BEFORE committing target ratio so knob and fill always glide smoothly!
+            bar.removeAttribute?.('data-dragging');
+            if (!wasDragging && e?.target?.closest?.('.agy-effort-tick')) return;
+            const fresh = resolvePanelProfile(panel);
+            if (fresh.locked || fresh.effortList.length < 2) return;
+            const ratio = ratioAtClientX(Number(e?.clientX ?? downX));
+            if (ratio == null) {
+              updateEffortSliderVisual(panel, fresh.effortList, fresh.activeKey, { isClaude: fresh.isClaude, locked: fresh.locked, modelLabel: displayModelName, openStage: stage });
+              return;
+            }
+            const idx = Math.round(ratio * (fresh.effortList.length - 1));
+            if (fresh.effortList[idx]) {
+              selectEffortOption(panel, fresh, idx, true);
+            }
+          };
+          track.addEventListener?.('pointerup', finishPointer);
+          track.addEventListener?.('pointercancel', () => {
+            if (!pointerHeld) return;
+            pointerHeld = false;
+            dragging = false;
             bar.removeAttribute?.('data-dragging');
             const fresh = resolvePanelProfile(panel);
-            updateEffortSliderVisual(panel, fresh.effortList, fresh.activeKey, { isClaude: fresh.isClaude, locked: fresh.locked });
-          };
-          track.addEventListener?.('pointerup', endDrag);
-          track.addEventListener?.('pointercancel', endDrag);
+            updateEffortSliderVisual(panel, fresh.effortList, fresh.activeKey, { isClaude: fresh.isClaude, locked: fresh.locked, modelLabel: displayModelName, openStage: stage });
+          });
           track.addEventListener?.('keydown', e => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
             e.preventDefault();
@@ -1372,65 +1578,58 @@
             selectEffortOption(panel, fresh, next, true);
           });
 
-          const ticksRow = el('div', { className: 'agy-effort-ticks' });
-          for (let i = 0; i < profile.effortList.length; i++) {
-            const item = profile.effortList[i];
-            const isSel = item.key === activeKey;
-            const tickPct = profile.effortList.length > 1 ? i / (profile.effortList.length - 1) : 0.5;
-            const tick = el('button', {
-              type: 'button',
-              className: 'agy-effort-tick',
-              'data-effort': item.key,
-              'data-testid': `agy-effort-tick-${item.key}`,
-              'aria-pressed': isSel ? 'true' : 'false',
-              style: { left: profile.effortList.length > 1 ? `calc(12px + (100% - 24px) * ${tickPct.toFixed(4)})` : '50%' },
-              onClick: e => {
-                e.stopPropagation();
-                const fresh = resolvePanelProfile(panel);
-                if (fresh.locked) return;
-                const idx = fresh.effortList.findIndex(x => x.key === item.key);
-                if (idx >= 0) selectEffortOption(panel, fresh, idx, true);
-              }
-            }, effortLabel(item.key));
-            ticksRow.appendChild(tick);
-          }
-
-          bar.appendChild(head);
+          bar.appendChild(modelSwitchBtn);
           bar.appendChild(track);
-          if (!profile.locked && profile.effortList.length >= 2) bar.appendChild(ticksRow);
         }
 
-        // Insert right after model list wrapper (above View Usage separator) when Fiber panel structure matches
+        // Insert right after model list wrapper when Fiber panel structure matches
         const listWrapper = panel.firstElementChild || panel.children?.[0];
         const afterList = listWrapper?.nextSibling || listWrapper?.nextElementSibling || panel.children?.[1] || null;
         if (profile.mode === 'fiber' && listWrapper && afterList) {
-          const sep = el('div', { className: 'agy-effort-sep', role: 'separator', 'data-agy-effort-sep': '1', 'data-agy-powertools-root': 'workbench-effort-sep' });
-          panel.insertBefore(sep, afterList);
           panel.insertBefore(bar, afterList);
         } else {
           panel.appendChild(bar);
         }
         if (desiredMode === 'slider') {
-          updateEffortSliderVisual(panel, profile.effortList, activeKey, { isClaude: profile.isClaude, locked: profile.locked });
+          updateEffortSliderVisual(panel, profile.effortList, activeKey, {
+            isClaude: profile.isClaude,
+            locked: profile.locked,
+            modelLabel: displayModelName,
+            openStage: stage
+          });
+        } else {
+          syncTriggerEffortTint('', false, false, stage);
         }
       }
 
       for (const node of document.querySelectorAll?.('[data-agy-effort-slider="1"], [data-agy-effort-sep="1"]') || []) {
         if (!validPanels.has(node.parentElement)) node.remove?.();
       }
-      setEffortSliderReadyAttr(mountedFiberSlider);
-      if (!mountedFiberSlider) {
+      for (const trackedPanel of [...panelStageMap.keys()]) {
+        if (!validPanels.has(trackedPanel) || !trackedPanel.isConnected) {
+          trackedPanel.removeAttribute?.('data-agy-codex-stage');
+          trackedPanel.parentElement?.removeAttribute?.('data-agy-codex-popup');
+          panelStageMap.delete(trackedPanel);
+        }
+      }
+      for (const pop of document.querySelectorAll?.('[data-agy-codex-popup]') || []) {
+        const childPanel = pop.querySelector?.('[data-agy-codex-stage]');
+        if (!childPanel || !validPanels.has(childPanel)) pop.removeAttribute?.('data-agy-codex-popup');
+      }
+      const anyEnhancedPanel = validPanels.size > 0;
+      setEffortSliderReadyAttr(mountedFiberSlider || (opts.effortSlider && anyEnhancedPanel));
+      if (!anyEnhancedPanel) {
         pendingModelOverride = null;
       }
-      if (!mountedFiberSlider && opts.effortSlider) {
+      if (!anyEnhancedPanel && opts.effortSlider) {
         const trigger = findActiveModelTrigger();
         if (trigger) {
           const ctx = readModelSelectorFiber(trigger, { allowTriggerFallback: false });
           const prof = ctx ? resolveFiberProfile(ctx) : null;
           if (prof && !prof.locked && prof.effortList.length >= 2) {
-            const idx = prof.effortList.findIndex(x => x.key === prof.activeKey);
-            const isMax = idx === prof.effortList.length - 1 && (prof.activeKey === 'xhigh' || prof.activeKey === 'max' || prof.activeKey === 'high');
-            syncTriggerEffortTint(prof.activeKey, isMax, prof.isClaude);
+            syncTriggerEffortTint(prof.activeKey, false, prof.isClaude, '');
+          } else {
+            syncTriggerEffortTint('', false, false, '');
           }
         }
       }

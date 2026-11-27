@@ -1,0 +1,11 @@
+{
+  "id": "telemetry",
+  "version": "1.4.1",
+  "coreRange": ">=1.4.0",
+  "defaultInstalled": true,
+  "displayName": { "zh-CN": "统计与额度", "en": "Telemetry & Quota" },
+  "serverEntry": "./service.mjs",
+  "settingsSchema": "./settings.mjs",
+  "clientHelpers": ["dashboard.mjs", "cache.mjs", "account-helpers.mjs"],
+  "clientScripts": ["calendar-vendor.js"]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "core",
+  "version": "1.4.1",
+  "coreApiVersion": 1,
+  "displayName": {
+    "zh-CN": "Antigravity Max 微内核底座",
+    "en": "Antigravity Max Core"
+  },
+  "description": {
+    "zh-CN": "单实例 CDP 挂载底座、链式 Hook/Slot 总线、右侧栏宿主面板与双通道模块中心。",
+    "en": "Single-instance CDP bridge, composable Hook/Slot bus, right side-panel host, and dual-channel Module Center."
+  }
+}

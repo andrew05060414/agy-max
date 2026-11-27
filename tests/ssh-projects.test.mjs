@@ -331,7 +331,7 @@ test('ssh-mcp-server responds to initialize and advertises all 10 ssh_* tools, a
   const repoRoot = join(import.meta.dirname, '..');
   const bundle = collectPackage(repoRoot);
   const paths = new Set(bundle.files.map(f => f.path));
-  for (const requiredFile of ['mcp_config.json', 'hooks.json', 'scripts/ssh-mcp-server.mjs', 'scripts/ssh-boundary-hook.mjs', 'lib/ssh-projects.mjs', 'lib/ssh-runner.mjs', 'lib/ssh-vault.mjs', 'lib/ssh-boundary.mjs', 'lib/native-ssh-projects.js']) {
+  for (const requiredFile of ['mcp_config.json', 'hooks.json', 'scripts/ssh-mcp-server.mjs', 'scripts/ssh-boundary-hook.mjs', 'lib/ssh-projects.mjs', 'lib/ssh-runner.mjs', 'lib/ssh-vault.mjs', 'lib/ssh-boundary.mjs', 'packages/ssh-remote/native-ssh-projects.js']) {
     assert.equal(paths.has(requiredFile), true, `bundle missing ${requiredFile}`);
   }
 
@@ -373,7 +373,7 @@ test('ssh-mcp-server responds to initialize and advertises all 10 ssh_* tools, a
 test('native-ssh-projects injects SSH Server into Add Resource menu and swaps sidebar icon to Cloud+SSH', async () => {
   const vm = await import('node:vm');
   const repoRoot = join(import.meta.dirname, '..');
-  const uiCode = readFileSync(join(repoRoot, 'lib', 'native-ssh-projects.js'), 'utf8');
+  const uiCode = readFileSync(join(repoRoot, 'packages', 'ssh-remote', 'native-ssh-projects.js'), 'utf8');
 
   class FakeEl {
     constructor(tag) {
